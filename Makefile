@@ -20,7 +20,7 @@
 # However, don't rest until it's warning-free!
 
 CC = gcc
-WERROR_CFLAGS = -Werror
+WERROR_CFLAGS = #-Werror
 CFLAGS = -g -Wall -Wextra $(WERROR_CFLAGS)
 LAB = 1
 DISTDIR = lab1-$(USER)
