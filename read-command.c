@@ -122,9 +122,34 @@ enum end_of_word get_next_word(char **buf, size_t *buf_size, size_t *max_size, i
 struct command_stream
 {
     command_t *stream;
-    size_t current;
-    size_t size;
+    size_t current_read;
+    size_t current_write;
+    size_t max_size;
 };
+
+command_stream_t init_command_stream()
+{
+    command_stream_t cs = checked_malloc(sizeof(struct command_stream));
+    cs->stream = checked_malloc(sizeof(command_t));
+    cs->current_read = 0;
+    cs->current_write = 0;
+    cs->max_size = 1;
+    return cs;
+}
+
+void add_command(command_stream_t cs, command_t c)
+{
+    if(cs->current_write == cs->max_size)
+        cs->stream = checked_grow_alloc(cs->stream, &(cs->max_size));
+    cs->stream[cs->current_write++] = c;
+}
+
+command_t get_command(command_stream_t cs)
+{
+    if(cs->current_read == cs->current_write)
+        return NULL;
+    return cs->stream[cs->current_read++];
+}
 
 command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof);
 
@@ -234,7 +259,7 @@ make_command_stream (int (*get_next_byte) (void *),
      add auxiliary functions and otherwise modify the source code.
      You can also use external functions defined in the GNU C Library.  */
 
-  command_stream_t stream = checked_malloc(sizeof(struct command_stream));
+  command_stream_t stream = init_command_stream();
 
   size_t buf_size, max_size = 5;
   char *buf = checked_malloc(max_size);
@@ -242,25 +267,30 @@ make_command_stream (int (*get_next_byte) (void *),
   bool eof = false;
   bool syntax = true;
 
+  command_t c;
   int commands = 1;
   while(1)
   {
     if(eof)
         break;
-    printThingy(create_command(&buf, &buf_size, &max_size, get_next_byte, get_next_byte_argument, &eof, &syntax));
-    printf("\n");
+    c = create_command(&buf, &buf_size, &max_size, get_next_byte, get_next_byte_argument, &eof, &syntax);
+    if(c != NULL)
+        add_command(stream, c);
+//    printf("\n");
 //    printf("commands %d\n", commands++);
   } 
 
+    return stream;
 
-  error (1, 0, "command reading not yet implemented");
-  return 0;
+//  error (1, 0, "command reading not yet implemented");
+//  return 0;
 }
 
 command_t
 read_command_stream (command_stream_t s)
 {
   /* FIXME: Replace this with your implementation too.  */
-  error (1, 0, "command reading not yet implemented");
-  return 0;
+    return get_command(s);
+  //error (1, 0, "command reading not yet implemented");
+  //return 0;
 }
