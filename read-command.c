@@ -140,7 +140,13 @@ command_stream_t init_command_stream()
 void add_command(command_stream_t cs, command_t c)
 {
     if(cs->current_write == cs->max_size)
-        cs->stream = checked_grow_alloc(cs->stream, &(cs->max_size));
+    {
+//        printf("increasing size of stream\n");
+        //cs->stream = checked_grow_alloc(cs->stream, &(cs->max_size));
+        cs->max_size *= 2;
+        cs->stream = checked_realloc(cs->stream, cs->max_size * sizeof(command_t));
+//        printf("increased size of stream\n");
+    }
     cs->stream[cs->current_write++] = c;
 }
 
@@ -227,8 +233,9 @@ command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, 
 //            printf("reached end of command\n");
             if(numLines == 1)
             {
-                com->u.word[0] = checked_malloc(sizeof(char));
-                com->u.word[0][0] = '\0';
+//                com->u.word[0] = checked_malloc(sizeof(char));
+//                com->u.word[0][0] = '\0';
+                return NULL;
             }
             return com;
         }
