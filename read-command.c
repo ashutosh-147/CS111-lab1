@@ -29,6 +29,122 @@
 
 #include <stdio.h>  // only for testing
 
+
+/////////////////////////////////////////////////
+/////////////////////////////////////////////////
+//STACK IMPLEMENTATION
+/////////////////////////////////////////////////
+/////////////////////////////////////////////////
+enum branch_word
+{
+  DO,
+  DONE,
+  THEN,
+  ELSE_OR_FI, //will have to consider special branching
+  FI,
+  ERROR,
+};
+
+struct stack_t
+{
+  enum branch_word * stack;
+  size_t max_size;
+  size_t head;
+} my_stack;
+
+void init_stack()
+{
+  my_stack.stack = checked_malloc(sizeof(enum branch_word));
+  my_stack.max_size = 1;
+  my_stack.head = 0;
+}
+
+enum branch_word peek()
+{
+  return my_stack.stack[my_stack.head];
+}
+
+void push(enum branch_word obj)
+{
+  if(my_stack.head == my_stack.max_size)
+    {
+      my_stack.max_size *= 2;
+      my_stack.stack = checked_realloc(my_stack.stack, my_stack.max_size * sizeof(enum branch_word));
+    }
+  my_stack.stack[my_stack.head++] = obj;
+}
+
+void pop()
+{
+  switch(peek())
+    {
+    case DO:
+      my_stack.stack[my_stack.head] = DONE;
+      return;
+    default: //DONE and FI
+      my_stack.head--;
+      return;
+    }
+}
+
+enum branch_word str_to_branch_word(char * str)
+{
+  if(strcmp("do",str) == 0)
+    {
+      return DO;
+    }
+  else if(strcmp("done",str) == 0)
+    {
+      return DONE;
+    }
+  else if(strcmp("then",str) == 0)
+    {
+      return THEN;
+    }
+  else if(strcmp("else",str) == 0)
+    {
+      return ELSE_OR_FI;
+    }
+  else if(strcmp("fi",str) == 0)
+    {
+      return FI;
+    }
+  else
+    {
+      return ERROR;
+    }
+}
+
+//implement
+bool word_on_stack(char * w)
+{
+  enum branch_word temp = str_to_branch_word(w);
+  if(peek(my_stack) == temp)
+    {
+      return true;
+/*
+      if(temp != ELSE_OR_FI)
+	{//not ELSE or FI
+	  return true;
+	}
+      else if(temp == ELSE_OR_FI && strcmp("else",w) == 0)
+	{//ELSE CASE
+	  
+	}
+      else
+	{//FI CASE
+	  
+	}
+*/
+    }  
+  return false;
+}
+/////////////////////////////////////////////////
+/////////////////////////////////////////////////
+//END OF STACK IMPLEMENTATION
+/////////////////////////////////////////////////
+/////////////////////////////////////////////////
+
 void append_char(char **buf, char c, size_t *size, size_t *max_size)
 {
 //    printf("before if\n");
@@ -157,10 +273,23 @@ command_t get_command(command_stream_t cs)
     return cs->stream[cs->current_read++];
 }
 
+command_t create_while_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax);
 command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof);
 
 command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax)
 {
+//  printf("before_get_word_in_create_command\n");
+  enum end_of_word end = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
+//  printf("after_get_word_in_create_command\n");
+  if(end == END_OF_FILE)
+    {
+      *eof = true;
+      return NULL;
+    }
+  if(isEmptyString(*buf))
+    {
+      return NULL;
+    }
 /*    if(strcmp("if", *buf) == 0)
     {
         
@@ -183,12 +312,27 @@ command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*g
     }
     else if(strcmp("while", *buf) == 0)
     {
-
-    }
+      return create_while_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax);
+      }
     else
     { */
         return create_simple_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof);
-//    }
+	//}
+}
+
+command_t create_while_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax)
+{
+  command_t com = checked_malloc(sizeof(struct command));
+  com->type = WHILE_COMMAND;
+  com->input = NULL;
+  com->output = NULL;
+  com->status = -1;
+  push(DO);//onto stack
+  com->u.command[0] = create_command(&buf, &buf_size, &max_size, get_next_byte, get_next_byte_argument, &eof, &syntax);
+  if(peek() == DO)
+    {
+
+    }
 }
 
 command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof)
@@ -199,14 +343,15 @@ command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, 
     com->output = NULL;
     com->u.word = checked_malloc(sizeof(char*));
     com->u.word[0] = NULL;
+    com->status = -1;
     size_t numLines = 1;
 
-    enum end_of_word end;
+    enum end_of_word end = CONTINUE;
 
     do
     {
 //        printf("hello\n");
-        end = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
+        
 //        printf("assigned to end\n");
 
         if(!isEmptyString(*buf))
@@ -230,11 +375,9 @@ command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, 
         }
         if(END_OF_COMMAND == end)
         {
-//            printf("reached end of command\n");
             if(numLines == 1)
             {
-//                com->u.word[0] = checked_malloc(sizeof(char));
-//                com->u.word[0][0] = '\0';
+//	      printf("eoComm_null\n");
                 return NULL;
             }
             return com;
@@ -245,6 +388,7 @@ command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, 
             // create that command
             // return that command
         }
+	end = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
     } while(1);
 }
 
@@ -265,6 +409,7 @@ make_command_stream (int (*get_next_byte) (void *),
   /* FIXME: Replace this with your implementation.  You may need to
      add auxiliary functions and otherwise modify the source code.
      You can also use external functions defined in the GNU C Library.  */
+  init_stack();
 
   command_stream_t stream = init_command_stream();
 
