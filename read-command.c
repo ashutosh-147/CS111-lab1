@@ -283,11 +283,6 @@ void add_command(command_stream_t cs, command_t c)
     cs->stream[cs->current_write++] = c;
 }
 
-/*command_t peek_latest_command(command_stream_t cs)
-{
-    
-}*/
-
 // function used for reading command stream
 command_t get_command(command_stream_t cs)
 {
@@ -308,9 +303,10 @@ command_t get_command(command_stream_t cs)
 /////////////////////////////////////////////////
 /////////////////////////////////////////////////
 
-command_t create_pipe_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof);
+command_t create_pipe_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, command_t first_command);
+command_t create_sequence_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, command_t first_command);
 command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, bool isWhile);
-command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, enum end_of_word first_word_status);
+command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, enum end_of_word first_word_status);
 
 command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax)
 {
@@ -355,11 +351,26 @@ command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*g
     else
     {
         printf("creating simple command\n");
-        return create_simple_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, end);
+        return create_simple_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, end);
 	}
 }
 
-command_t create_pipe_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof)
+// creates command for | ; < >
+command_t create_chain_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, command_t first_command)
+{
+    enum end_of_word end = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
+    
+    if(strcmp("|", *buf) == 0)
+    {
+        return create_pipe_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, first_command);
+    }
+    else //if(strcmp(";", *buf) == 0)
+    {
+        return create_sequence_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, first_command);
+    }
+}
+
+command_t create_pipe_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, command_t first_command)
 {
     command_t com = checked_malloc(sizeof(struct command));
     com->status = -1;
@@ -367,8 +378,44 @@ command_t create_pipe_command(char **buf, size_t *buf_size, size_t *max_size, in
     com->input = NULL;
     com->output = NULL;
     
-    //com->u.command[0] = 
-    return NULL;
+//    com->u.command[0] = first_command;
+//    com->u.command[1] = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax);
+
+    command_t second_command = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax);
+
+    if(second_command == NULL)
+    {
+        *syntax = true;
+        return first_command;
+    }
+    else
+    {
+        com->u.command[0] = first_command;
+        com->u.command[1] = second_command;
+    }
+    return com;
+}
+
+command_t create_sequence_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, command_t first_command)
+{
+    command_t com = checked_malloc(sizeof(struct command));
+    com->status = -1;
+    com->type = SEQUENCE_COMMAND;
+    com->input = NULL;
+    com->output = NULL;
+
+    command_t second_command = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax);
+    
+    if(second_command == NULL)
+    {
+        return first_command;
+    }
+    else
+    {
+        com->u.command[0] = first_command;
+        com->u.command[1] = second_command;
+        return com;
+    }
 }
 
 command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, bool isWhile)
@@ -455,7 +502,7 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
     return com;
 }
 
-command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, enum end_of_word first_word_status)
+command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, enum end_of_word first_word_status)
 {
     command_t com = checked_malloc(sizeof(struct command));
     com->status = -1;
@@ -505,9 +552,7 @@ command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, 
         }
         if(NEW_COMMAND == end)
         {
-//            printf("reached new command\n");
-            // create that command
-            // return that command
+            return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, com);
         }
 	end = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
     } while(1);

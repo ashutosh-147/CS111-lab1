@@ -22,3 +22,11 @@ done
 until a
 do b
 done
+
+a|b
+c|d|e
+
+a;b
+c;d;
+e;f;g;h
+i;j;k;l;
