@@ -1,6 +1,7 @@
 true
 
 gcc yolo swag
+nwe
 
 while s
 do x
@@ -19,8 +20,18 @@ done
 do z
 done
 
+while while m
+do n
+done
+do o
+done
+
 until a
-do b
+    do b
+done
+
+until c     
+do d
 done
 
 a|b
@@ -33,5 +44,9 @@ i;j;k;l;
 
 a<b
 c>d
+
+e < f
+
+g   >       i   
 
 a<b>c|d<e>f|g<h>i
