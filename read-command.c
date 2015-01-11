@@ -328,14 +328,14 @@ command_t get_command(command_stream_t cs)
 /////////////////////////////////////////////////
 /////////////////////////////////////////////////
 
-command_t create_pipe_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, command_t first_command);
-command_t create_sequence_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, command_t first_command);
-command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, command_t first_command, bool isInput);
-command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, bool isWhile);
-command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, enum end_of_word first_word_status);
+command_t create_pipe_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command);
+command_t create_sequence_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command);
+command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command, bool isInput);
+command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool isWhile);
+command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, enum end_of_word first_word_status);
 
 // need to a check word on stack option
-command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, bool check_stack)
+command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool check_stack)
 {
 //  printf("before_get_word_in_create_command\n");
   enum end_of_word end = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
@@ -374,22 +374,22 @@ command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*g
     else */ if(strcmp("until", *buf) == 0)
     {
         printf("creating until command\n");
-        return create_while_or_until_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, false);
+        return create_while_or_until_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, false);
     }
     else if(strcmp("while", *buf) == 0)
     {
         printf("creating while command\n");
-        return create_while_or_until_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, true);
+        return create_while_or_until_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, true);
     }
     else
     {
         printf("creating simple command\n");
-        return create_simple_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, end);
+        return create_simple_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, end);
 	}
 }
 
 // creates command for | ; < >
-command_t create_chain_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, command_t first_command)
+command_t create_chain_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command)
 {
     // use end to check end of file and other errors
     enum end_of_word eow = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
@@ -404,14 +404,13 @@ command_t create_chain_command(char **buf, size_t *buf_size, size_t *max_size, i
                 return first_command;
             case CHAIN_COMMAND:
                 error(1, 0, "Error: double chain command ... exiting\n");
-                *syntax = true;
                 return first_command;
             case MORE_ARGS:
                 break;
         }
 
         printf("creating ; command\n");
-        return create_sequence_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, first_command);
+        return create_sequence_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, first_command);
     }
 
     switch(eow)
@@ -421,7 +420,6 @@ command_t create_chain_command(char **buf, size_t *buf_size, size_t *max_size, i
         case END_OF_LINE:
         case CHAIN_COMMAND:
             error(1, 0, "Error: double chain command ... exiting\n");
-            *syntax = true;
             return first_command;
         case MORE_ARGS:
             break;
@@ -430,21 +428,21 @@ command_t create_chain_command(char **buf, size_t *buf_size, size_t *max_size, i
     if(strcmp("|", *buf) == 0)
     {
         printf("creating | command\n");
-        return create_pipe_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, first_command);
+        return create_pipe_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, first_command);
     }
     else if(strcmp("<", *buf) == 0)
     {
         printf("adding <\n");
-        return add_io_redirection(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, first_command, true);
+        return add_io_redirection(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, first_command, true);
     }
     else
     {
         printf("adding >\n");
-        return add_io_redirection(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, first_command, false);
+        return add_io_redirection(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, first_command, false);
     }
 }
 
-command_t create_pipe_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, command_t first_command)
+command_t create_pipe_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command)
 {
     command_t com = checked_malloc(sizeof(struct command));
     com->status = -1;
@@ -452,12 +450,11 @@ command_t create_pipe_command(char **buf, size_t *buf_size, size_t *max_size, in
     com->input = NULL;
     com->output = NULL;
 
-    command_t second_command = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, false);
+    command_t second_command = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, false);
 
     if(second_command == NULL)
     {
         error(1, 0, "Must have second command for pipe ... exiting\n");
-        *syntax = true;
         return first_command;
     }
     else
@@ -468,7 +465,7 @@ command_t create_pipe_command(char **buf, size_t *buf_size, size_t *max_size, in
     }
 }
 
-command_t create_sequence_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, command_t first_command)
+command_t create_sequence_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command)
 {
     command_t com = checked_malloc(sizeof(struct command));
     com->status = -1;
@@ -476,7 +473,7 @@ command_t create_sequence_command(char **buf, size_t *buf_size, size_t *max_size
     com->input = NULL;
     com->output = NULL;
 
-    command_t second_command = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, true);
+    command_t second_command = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, true);
     
     if(second_command == NULL)
     {
@@ -490,7 +487,7 @@ command_t create_sequence_command(char **buf, size_t *buf_size, size_t *max_size
     }
 }
 
-command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, command_t first_command, bool isInput)
+command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command, bool isInput)
 {
     enum end_of_word eow = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
 
@@ -503,7 +500,6 @@ command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int
             if(isEmptyString(*buf))
             {
                 error(1, 0, "Cannot have chain command after io redirection ... exiting\n");
-                *syntax = true;
                 return first_command;
             }
         case MORE_ARGS:
@@ -515,7 +511,6 @@ command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int
         if(first_command->input != NULL || first_command->output != NULL)
         {
             error(1, 0, "Must define input first - Cannot define input twice ... exiting\n");
-            *syntax = true;
             return first_command;
         }
         first_command->input = checked_malloc(*buf_size);
@@ -526,7 +521,6 @@ command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int
         if(first_command->output != NULL)
         {
             error(1, 0, "Cannot define output twice ... exiting\n");
-            *syntax = true;
             return first_command;
         }
         first_command->output = checked_malloc(*buf_size);
@@ -535,12 +529,12 @@ command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int
 
     if(eow == CHAIN_COMMAND)
     {
-        return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, first_command);
+        return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, first_command);
     }
     return first_command;
 }
 
-command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, bool isWhile)
+command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool isWhile)
 {
     enum end_of_word eow;
     
@@ -551,15 +545,13 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
     com->output = NULL;
 
     push(DO);//onto stack
-    com->u.command[0] = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, false);
+    com->u.command[0] = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, false);
+
     if(*eof)
     {
         return NULL;
     }
-    if(*syntax)
-    {
-        return NULL;
-    }
+
     if(peek() == DO)
     {
         eow = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
@@ -570,7 +562,6 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
                 *eof = true;
             case CHAIN_COMMAND:
                 error(1, 0, "Cannot define chain command after 'do' ... exiting\n");
-                *syntax = true;
                 return NULL;
             case END_OF_LINE:
             case MORE_ARGS:
@@ -581,14 +572,13 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
                 else
                 {
                     error(1, 0, "Unable to find 'do' ... exiting\n");
-                    *syntax = true;
                     return NULL;
                 }
                 break; 
         }
     }
 
-    com->u.command[1] = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, false);
+    com->u.command[1] = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, false);
     if(peek() == DONE)
     {
         eow = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
@@ -607,18 +597,17 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
                 else
                 {
                     error(1, 0, "Unable to find done ... exiting\n");
-                    *syntax = true;
                     return NULL;
                 }
                 break; 
         }
     }
     if(eow == CHAIN_COMMAND)
-        return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, com);
+        return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com);
     return com;
 }
 
-command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, enum end_of_word first_word_status)
+command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, enum end_of_word first_word_status)
 {
     command_t com = checked_malloc(sizeof(struct command));
     com->status = -1;
@@ -652,7 +641,7 @@ command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, 
                 } 
                 return com;
             case CHAIN_COMMAND:
-                return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, com);
+                return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com);
             case MORE_ARGS:
                 end = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
         }
@@ -679,16 +668,13 @@ make_command_stream (int (*get_next_byte) (void *),
   size_t buf_size, max_size = 5;
   char *buf = checked_malloc(max_size);
   bool eof = false;
-  bool syntax = false;  // true if bad syntax
 
   command_t c;
   while(1)
   {
-    c = create_command(&buf, &buf_size, &max_size, get_next_byte, get_next_byte_argument, &eof, &syntax, false);
+    c = create_command(&buf, &buf_size, &max_size, get_next_byte, get_next_byte_argument, &eof, false);
     if(eof)
         break;
-    if(syntax)
-        error(1, 0, "bad syntax");  // improve error message
     if(c != NULL)
         add_command(stream, c);
   } 
