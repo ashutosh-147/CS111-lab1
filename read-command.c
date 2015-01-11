@@ -273,8 +273,8 @@ command_t get_command(command_stream_t cs)
     return cs->stream[cs->current_read++];
 }
 
-command_t create_while_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax);
-command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof);
+command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, bool isWhile);
+command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, enum end_of_word first_word_status);
 
 command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax)
 {
@@ -306,36 +306,106 @@ command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*g
     {
 
     }
-    else if(strcmp("until", *buf) == 0)
+    else */ if(strcmp("until", *buf) == 0)
     {
-
+        return create_while_or_until_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, false);
     }
     else if(strcmp("while", *buf) == 0)
     {
-      return create_while_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax);
-      }
+        printf("creating while command\n");
+        return create_while_or_until_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax, true);
+    }
     else
-    { */
-        return create_simple_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof);
-	//}
+    {
+        return create_simple_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, end);
+	}
 }
 
-command_t create_while_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax)
+command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool *syntax, bool isWhile)
 {
+    enum end_of_word eow;
+    
   command_t com = checked_malloc(sizeof(struct command));
-  com->type = WHILE_COMMAND;
+  com->type = isWhile ? WHILE_COMMAND : UNTIL_COMMAND;
   com->input = NULL;
   com->output = NULL;
   com->status = -1;
   push(DO);//onto stack
-  com->u.command[0] = create_command(&buf, &buf_size, &max_size, get_next_byte, get_next_byte_argument, &eof, &syntax);
+  printf("getting Command A\n");
+  com->u.command[0] = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax);
+  if(*eof)
+  {
+    printf("reached end of file\n");
+    return NULL;
+  }
+  if(*syntax)
+  {
+    printf("bad syntax ... exiting\n");
+    return NULL;
+  }
+  printf("continuing\n");
   if(peek() == DO)
+  {
+    printf("do on stack\n");
+    do 
     {
-
+     eow = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
+     printf("%s\n", *buf);
+    } while(isEmptyString(*buf) && eow != END_OF_FILE);
+    switch(eow)
+    {
+        case END_OF_FILE:
+            printf("reached end of file\n");
+            return NULL;
+        default:
+            if(word_on_stack(*buf))
+            {
+                pop();
+                printf("found do\n");
+            }
+            else
+            {
+                printf("did not find do\n");
+                *syntax = true;
+                return NULL;
+            }
+            break; 
     }
+  }
+  
+  com->u.command[1] = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, syntax);
+  if(peek() == DONE)
+  {
+    printf("done on stack\n");
+    do 
+    {
+     eow = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
+     printf("%s\n", *buf);
+    } while(isEmptyString(*buf) && eow != END_OF_FILE);
+    switch(eow)
+    {
+        case END_OF_FILE:
+            printf("reached end of file\n");
+            return NULL;
+        default:
+            if(word_on_stack(*buf))
+            {
+                pop();
+                printf("found done\n");
+            }
+            else
+            {
+                printf("did not find done\n");
+                *syntax = true;
+                return NULL;
+            }
+            break; 
+    }
+  }
+    return com;
 }
 
-command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof)
+command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, enum end_of_word first_word_status)
 {
     command_t com = checked_malloc(sizeof(struct command));
     com->type = SIMPLE_COMMAND;
@@ -346,7 +416,7 @@ command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, 
     com->status = -1;
     size_t numLines = 1;
 
-    enum end_of_word end = CONTINUE;
+    enum end_of_word end = first_word_status;
 
     do
     {
@@ -356,6 +426,7 @@ command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, 
 
         if(!isEmptyString(*buf))
         {
+            printf("%s\n", *buf);
             com->u.word = checked_realloc(com->u.word, sizeof(char*) * ++numLines);
             com->u.word[numLines - 1] = NULL;
             com->u.word[numLines - 2] = checked_malloc(*buf_size);
@@ -375,9 +446,9 @@ command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, 
         }
         if(END_OF_COMMAND == end)
         {
+            printf("end of command reached - simple command\n");
             if(numLines == 1)
             {
-//	      printf("eoComm_null\n");
                 return NULL;
             }
             return com;
@@ -417,15 +488,17 @@ make_command_stream (int (*get_next_byte) (void *),
   char *buf = checked_malloc(max_size);
   int i;
   bool eof = false;
-  bool syntax = true;
+  bool syntax = false;  // true if bad syntax
 
   command_t c;
   int commands = 1;
   while(1)
   {
+    c = create_command(&buf, &buf_size, &max_size, get_next_byte, get_next_byte_argument, &eof, &syntax);
     if(eof)
         break;
-    c = create_command(&buf, &buf_size, &max_size, get_next_byte, get_next_byte_argument, &eof, &syntax);
+    if(syntax)
+        error(1, 0, "bad syntax");
     if(c != NULL)
         add_command(stream, c);
 //    printf("\n");
