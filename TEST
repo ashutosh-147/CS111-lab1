@@ -5,15 +5,20 @@ gcc yolo swag
 while s
 do x
 done
+
 hello
+
 while g++ x y z
 do qweropjio asd sdaf we
 done
-while while x
+
+while
+while x
 do y
 done
-do x
+do z
 done
-until x
-do y
+
+until a
+do b
 done
