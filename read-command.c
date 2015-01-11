@@ -203,7 +203,6 @@ enum end_of_word
     END_OF_LINE,
     CHAIN_COMMAND,
     MORE_ARGS,
-    BAD_CHAR,
     // add enums for ( and )
 };
 
@@ -244,6 +243,16 @@ enum end_of_word get_next_word(char **buf, size_t *buf_size, size_t *max_size, i
                 append_char(buf, '\0', buf_size, max_size);
                 lastChar = (char) nb;
                 return CHAIN_COMMAND;
+/*            case '\':
+                if(*buf_size == 0)
+                {
+                    switch(get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument))
+                    {
+
+                    }
+                }
+                else
+                    error(1, 0, "cannot have '\\' in a word ... exiting"); */
             case ' ':
             case '\t':
                 if(*buf_size == 0)
@@ -254,10 +263,7 @@ enum end_of_word get_next_word(char **buf, size_t *buf_size, size_t *max_size, i
                 if(isAcceptable((char) nb))
                     append_char(buf, (char) nb, buf_size, max_size);
                 else
-                {
                     error(1, 0, "bad character found ... exiting\n");
-                    return BAD_CHAR;
-                }
         }
     }
 }
@@ -397,7 +403,6 @@ command_t create_chain_command(char **buf, size_t *buf_size, size_t *max_size, i
             case END_OF_LINE:
                 return first_command;
             case CHAIN_COMMAND:
-            case BAD_CHAR:
                 error(1, 0, "Error: double chain command ... exiting\n");
                 *syntax = true;
                 return first_command;
@@ -415,7 +420,6 @@ command_t create_chain_command(char **buf, size_t *buf_size, size_t *max_size, i
             *eof = true;
         case END_OF_LINE:
         case CHAIN_COMMAND:
-        case BAD_CHAR:
             error(1, 0, "Error: double chain command ... exiting\n");
             *syntax = true;
             return first_command;
@@ -504,10 +508,6 @@ command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int
             }
         case MORE_ARGS:
             break;
-        case BAD_CHAR:
-            error(1, 0, "was it here?\n");
-            *syntax = true;
-            return first_command;
     }
 
     if(isInput)
@@ -568,7 +568,6 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
         {
             case END_OF_FILE:
                 *eof = true;
-            case BAD_CHAR:
             case CHAIN_COMMAND:
                 error(1, 0, "Cannot define chain command after 'do' ... exiting\n");
                 *syntax = true;
@@ -596,9 +595,6 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
         
         switch(eow) // deal with enum cases instead of default
         {
-            case BAD_CHAR:
-                *syntax = true;
-                return NULL;
             case END_OF_FILE:
                 *eof = true;
             case END_OF_LINE:
@@ -647,9 +643,6 @@ command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, 
 
         switch(end)
         {
-            case BAD_CHAR:
-                *syntax = true;
-                return NULL;
             case END_OF_FILE:          
                 *eof = true;
             case END_OF_LINE:
