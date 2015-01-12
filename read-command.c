@@ -214,10 +214,24 @@ enum end_of_word get_next_word(char **buf, size_t *buf_size, size_t *max_size, i
 
     if(lastChar != '\0')
     {
-        append_char(buf, lastChar, buf_size, max_size);
-        append_char(buf, '\0', buf_size, max_size);
-        lastChar = '\0';
-        return MORE_ARGS;
+        switch(lastChar)
+        {
+            case '|':
+            case ';':
+            case '<':
+            case '>':
+                append_char(buf, lastChar, buf_size, max_size);
+                append_char(buf, '\0', buf_size, max_size);
+                lastChar = '\0';
+                return MORE_ARGS;
+            case '\n':
+                lastChar = '\0';
+                return get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
+            default:
+                append_char(buf, lastChar, buf_size, max_size);
+                lastChar = '\0';
+        }
+            
     }
 
     for(;;)
@@ -231,8 +245,6 @@ enum end_of_word get_next_word(char **buf, size_t *buf_size, size_t *max_size, i
         switch((char) nb)
         {
             case '\n':
-                //if(*buf_size == 0)
-                //    return get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
                 append_char(buf, '\0', buf_size, max_size);
                 return END_OF_LINE;
             case '|':
@@ -245,29 +257,14 @@ enum end_of_word get_next_word(char **buf, size_t *buf_size, size_t *max_size, i
                 append_char(buf, '\0', buf_size, max_size);
                 lastChar = (char) nb;
                 return CHAIN_COMMAND;
-/*            case '\\':
-                if(*buf_size == 0)
-                {
-                    switch(get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument))
-                    {
-                        case END_OF_FILE:
-                        case CHAIN_COMMAND:
-                        case MORE_ARGS:
-                            error(1, 0, "Cannot have additional characters after '\\' ... exiting\n");
-                        case END_OF_LINE:
-                            a = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
-                            printf("backslash - enum: %d - buffer: %s\n", a, *buf);
-                            return a;
-                    }
-                }
-                else
-                    error(1, 0, "cannot have '\\' character in a word ... exiting\n"); */
+            case '#':
+                
             case ' ':
             case '\t':
                 if(*buf_size == 0)
                     return get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
                 append_char(buf, '\0', buf_size, max_size);
-                for(;;)
+/*                for(;;)
                 {
                     while((char) nb == ' ' || (char) nb == '\t')
                         nb = get_next_byte(get_next_byte_argument);
@@ -286,7 +283,9 @@ enum end_of_word get_next_word(char **buf, size_t *buf_size, size_t *max_size, i
                     }
                     else
                         break;       
-                }
+                }*/
+                while((char) nb == ' ' || (char) nb == '\t')
+                    nb = get_next_byte(get_next_byte_argument);
                 if(nb == -1)
                     return END_OF_FILE;
                 lastChar = (char) nb;
