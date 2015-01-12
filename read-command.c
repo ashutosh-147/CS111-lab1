@@ -209,6 +209,7 @@ enum end_of_word
 char lastChar = '\0';
 enum end_of_word get_next_word(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument)
 {
+    enum end_of_word a;
     *buf_size = 0;
 
     if(lastChar != '\0')
@@ -240,25 +241,70 @@ enum end_of_word get_next_word(char **buf, size_t *buf_size, size_t *max_size, i
             case '<':
             case '>':
             case ';':
+                printf("got char: %c\n", (char) nb);
                 append_char(buf, '\0', buf_size, max_size);
                 lastChar = (char) nb;
                 return CHAIN_COMMAND;
-/*            case '\':
+/*            case '\\':
                 if(*buf_size == 0)
                 {
                     switch(get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument))
                     {
-
+                        case END_OF_FILE:
+                        case CHAIN_COMMAND:
+                        case MORE_ARGS:
+                            error(1, 0, "Cannot have additional characters after '\\' ... exiting\n");
+                        case END_OF_LINE:
+                            a = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
+                            printf("backslash - enum: %d - buffer: %s\n", a, *buf);
+                            return a;
                     }
                 }
                 else
-                    error(1, 0, "cannot have '\\' in a word ... exiting"); */
+                    error(1, 0, "cannot have '\\' character in a word ... exiting\n"); */
             case ' ':
             case '\t':
                 if(*buf_size == 0)
                     return get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
                 append_char(buf, '\0', buf_size, max_size);
-                return MORE_ARGS;
+                for(;;)
+                {
+                    while((char) nb == ' ' || (char) nb == '\t')
+                        nb = get_next_byte(get_next_byte_argument);
+                    if((char) nb == '\\')
+                    {
+                        do
+                        {
+                            nb = get_next_byte(get_next_byte_argument);
+                            if(nb == -1)
+                                return END_OF_FILE;
+                            if((char) nb != ' ' || (char) nb != '\t')
+                                if((char) nb !='\n')
+                                    error(1, 0, "Cannot have non-white space/newline after '\\'\n");
+                        } while((char) nb != '\n');
+                        nb = get_next_byte(get_next_byte_argument);
+                    }
+                    else
+                        break;       
+                }
+                if(nb == -1)
+                    return END_OF_FILE;
+                lastChar = (char) nb;
+                switch((char) nb)
+                {
+                    case '|':
+                    case '<':
+                    case '>':
+                    case ';':
+                        return CHAIN_COMMAND;
+                    case '\n':
+                        return END_OF_LINE;
+                    default:
+                        if(isAcceptable((char) nb))
+                            return MORE_ARGS;
+                        else
+                            error(1, 0, "bad character found ... exiting\n");
+                }
             default:
                 if(isAcceptable((char) nb))
                     append_char(buf, (char) nb, buf_size, max_size);
@@ -531,6 +577,7 @@ command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int
     {
         return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, first_command);
     }
+    printf("io redirect - next command is not chain\n");
     return first_command;
 }
 

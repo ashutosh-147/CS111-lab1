@@ -26,6 +26,9 @@ done
 do o
 done
 
+while A
+    do B ;  done
+
 until a
     do b
 done
@@ -34,7 +37,7 @@ until c
 do d
 done
 
-a|b
+a | b
 c|d|e
 
 a;b
@@ -49,4 +52,9 @@ e < f
 
 g   >       i   
 
-a<b>c|d<e>f|g<h>i
+a<b>c |d<e>f|g<h>i
+
+while A
+do B
+done
+
