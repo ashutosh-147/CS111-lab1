@@ -43,6 +43,7 @@ enum branch_word
   THEN,
   ELSE_OR_FI, //will have to consider special branching
   FI,
+  SUBSHELL,
   ERROR,
 };
 
@@ -67,6 +68,8 @@ bool stack_is_empty()
 
 enum branch_word peek()
 {
+  if(my_stack.head-1 < 0)
+    error(1, 0, "Peeking at empty stack ... exiting\n");
   return my_stack.stack[my_stack.head-1];
 }
 
@@ -114,6 +117,10 @@ enum branch_word str_to_branch_word(char * str)
   else if(strcmp("fi",str) == 0)
     {
       return FI;
+    }
+  else if(strcmp(")",str) == 0)
+    {
+        return SUBSHELL;
     }
   else
     {
@@ -203,13 +210,14 @@ enum end_of_word
     END_OF_LINE,
     CHAIN_COMMAND,
     MORE_ARGS,
+    SS_COMMAND,
     // add enums for ( and )
 };
 
 char lastChar = '\0';
 enum end_of_word get_next_word(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument)
 {
-    enum end_of_word a;
+    int nb;
     *buf_size = 0;
 
     if(lastChar != '\0')
@@ -220,10 +228,41 @@ enum end_of_word get_next_word(char **buf, size_t *buf_size, size_t *max_size, i
             case ';':
             case '<':
             case '>':
+            case '(':
                 append_char(buf, lastChar, buf_size, max_size);
                 append_char(buf, '\0', buf_size, max_size);
                 lastChar = '\0';
                 return MORE_ARGS;
+            case ')':
+                printf("omitting )\n");
+                append_char(buf, lastChar, buf_size, max_size);
+                append_char(buf, '\0', buf_size, max_size);
+                lastChar = '\0';
+                //for(;;)
+                //{
+                    //append_char(buf, '\0', buf_size, max_size);
+                    do
+                    {
+                        nb = get_next_byte(get_next_byte_argument);
+                        if(nb == -1)
+                            return END_OF_FILE;
+                    } while((char) nb == ' ' || (char) nb == '\t');
+                    lastChar = (char) nb;
+                    switch((char) nb)
+                    {
+                        case '<':
+                        case '>':
+                        case '|':
+                        case ';':
+                            return CHAIN_COMMAND;
+                        case '\n':
+                            return END_OF_LINE;
+                        case ')':
+                            return SS_COMMAND;
+                        default:
+                            error(1, 0, "Invalid char after ')' ... exiting\n");
+                    }
+                //}
             case '\n':
                 lastChar = '\0';
                 return get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
@@ -236,7 +275,7 @@ enum end_of_word get_next_word(char **buf, size_t *buf_size, size_t *max_size, i
 
     for(;;)
     {
-        int nb = get_next_byte(get_next_byte_argument);
+        nb = get_next_byte(get_next_byte_argument);
         if(nb == -1)
         {  // end of file
             append_char(buf, '\0', buf_size, max_size);
@@ -247,18 +286,64 @@ enum end_of_word get_next_word(char **buf, size_t *buf_size, size_t *max_size, i
             case '\n':
                 append_char(buf, '\0', buf_size, max_size);
                 return END_OF_LINE;
+            case '(':
+                if(*buf_size != 0)
+                    error(1, 0, "cannot have '(' in argument ... exiting\n");
+            case ')':
+                append_char(buf, '\0', buf_size, max_size);
+                lastChar = (char) nb;
+                printf("lastChar is )\n");
+                return SS_COMMAND;
+/*            case ')':
+                for(;;)
+                {
+                    if(peek() != SUBSHELL)
+                        error(1, 0, "No matching parentheses ... exiting\n");
+                    pop();
+                    append_char(buf, '\0', buf_size, max_size);
+                    do
+                    {
+                        nb = get_next_byte(get_next_byte_argument);
+                        if(nb == -1)
+                            return END_OF_FILE;
+                    } while((char) nb == ' ' || (char) nb == '\t');
+                    switch((char) nb)
+                    {
+                        case '<':
+                        case '>':
+                        case '|':
+                        case ';':
+                            lastChar = (char) nb;
+                            return CHAIN_COMMAND;
+                        case '\n':
+                            lastChar = (char) nb;
+                            return END_OF_LINE;
+                        case ')':
+                            break;
+                        default:
+                            error(1, 0, "Invalid char after ')' ... exiting\n");
+                    }
+                } */
             case '|':
-//            case '(':
-//            case ')':
             case '<':
             case '>':
             case ';':
-                printf("got char: %c\n", (char) nb);
                 append_char(buf, '\0', buf_size, max_size);
                 lastChar = (char) nb;
                 return CHAIN_COMMAND;
             case '#':
-                
+                if(*buf_size != 0)
+                    error(1, 0, "'#' must stand alone ... exiting\n");
+                do
+                {
+                    nb = get_next_byte(get_next_byte_argument);
+                    if(nb == -1)
+                        return END_OF_FILE;
+                } while((char) nb != '\n');
+                append_char(buf, '\0', buf_size, max_size);
+                lastChar = '\n';
+                return END_OF_LINE;
+                //return get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
             case ' ':
             case '\t':
                 if(*buf_size == 0)
@@ -291,6 +376,8 @@ enum end_of_word get_next_word(char **buf, size_t *buf_size, size_t *max_size, i
                 lastChar = (char) nb;
                 switch((char) nb)
                 {
+                    case '(':
+                        return SS_COMMAND;
                     case '|':
                     case '<':
                     case '>':
@@ -302,7 +389,10 @@ enum end_of_word get_next_word(char **buf, size_t *buf_size, size_t *max_size, i
                         if(isAcceptable((char) nb))
                             return MORE_ARGS;
                         else
+                        {
+                            printf("found: %c\n", (char) nb);
                             error(1, 0, "bad character found ... exiting\n");
+                        }
                 }
             default:
                 if(isAcceptable((char) nb))
@@ -377,6 +467,7 @@ command_t create_pipe_command(char **buf, size_t *buf_size, size_t *max_size, in
 command_t create_sequence_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command);
 command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command, bool isInput);
 command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool isWhile);
+command_t create_subshell_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof);
 command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, enum end_of_word first_word_status);
 
 // need to a check word on stack option
@@ -385,17 +476,21 @@ command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*g
 //  printf("before_get_word_in_create_command\n");
   enum end_of_word end = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
 //  printf("after_get_word_in_create_command\n");
+    printf("creating command based on: %s\n", *buf);
     if(end == END_OF_FILE)
     {
         *eof = true;
         return NULL;
     }
     if(check_stack)
+    {
         if(word_on_stack(*buf))
         {
+            printf("popping off stack\n");
             pop();
             return NULL;
         }
+    }
     if(isEmptyString(*buf))
     {
         return NULL;
@@ -412,11 +507,17 @@ command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*g
     {
 
     }
-    else if(strcmp("(", *buf) == 0)
+    else*/ if(strcmp("(", *buf) == 0)
     {
-
+        printf("creating subshell command\n");
+        return create_subshell_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof);
     }
-    else */ if(strcmp("until", *buf) == 0)
+    else if(strcmp(")", *buf) == 0)
+    {
+        error(1, 0, "Cannot create a new command starting with ')' ... exiting\n");
+        return NULL;
+    }
+    else if(strcmp("until", *buf) == 0)
     {
         printf("creating until command\n");
         return create_while_or_until_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, false);
@@ -446,11 +547,13 @@ command_t create_chain_command(char **buf, size_t *buf_size, size_t *max_size, i
             case END_OF_FILE:
                 *eof = true;
             case END_OF_LINE:
+            case SS_COMMAND:
                 return first_command;
             case CHAIN_COMMAND:
                 error(1, 0, "Error: double chain command ... exiting\n");
                 return first_command;
             case MORE_ARGS:
+            //case SS_COMMAND:
                 break;
         }
 
@@ -467,6 +570,7 @@ command_t create_chain_command(char **buf, size_t *buf_size, size_t *max_size, i
             error(1, 0, "Error: double chain command ... exiting\n");
             return first_command;
         case MORE_ARGS:
+        case SS_COMMAND:
             break;
     }
     
@@ -540,6 +644,8 @@ command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int
     {
         case END_OF_FILE:
             *eof = true;
+        case SS_COMMAND:
+            error(1, 0, "Cannot redirect I/O into or out of subshell ... exiting\n");
         case END_OF_LINE:
         case CHAIN_COMMAND:
             if(isEmptyString(*buf))
@@ -611,6 +717,7 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
                 return NULL;
             case END_OF_LINE:
             case MORE_ARGS:
+            case SS_COMMAND:
                 if(word_on_stack(*buf))
                 {
                     pop();
@@ -636,6 +743,7 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
             case END_OF_LINE:
             case CHAIN_COMMAND:
             case MORE_ARGS:
+            case SS_COMMAND:
                 if(word_on_stack(*buf))
                 {
                     pop();
@@ -650,6 +758,54 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
     }
     if(eow == CHAIN_COMMAND)
         return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com);
+    return com;
+}
+
+command_t create_subshell_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof)
+{
+    command_t com = checked_malloc(sizeof(struct command));
+    com->status = -1;
+    com->type = SUBSHELL_COMMAND;
+    com->input = NULL;
+    com->output = NULL;
+
+    enum end_of_word eow;
+
+    push(SUBSHELL);
+    
+    com->u.command[0] = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, false);
+    if(peek() == SUBSHELL)
+    {
+        eow = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
+        
+        switch(eow) // deal with enum cases instead of default
+        {
+            case END_OF_FILE:
+                *eof = true;
+            case END_OF_LINE:
+            case CHAIN_COMMAND:
+                break;
+            case SS_COMMAND:
+                if(strcmp("(", *buf) == 0)
+                    error(1, 0, "cannot have adjacent subshells ... exiting\n");
+            case MORE_ARGS:
+                if(word_on_stack(*buf))
+                {
+                    pop();
+                }
+                else
+                {
+                    error(1, 0, "Unable to find ')' ... exiting\n");
+                    return NULL;
+                }
+                break; 
+        }
+    }
+    if(eow == CHAIN_COMMAND)
+    {
+        printf("creating chain command after subshell\n");
+        return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com);
+    }
     return com;
 }
 
@@ -686,6 +842,26 @@ command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, 
                     return NULL;
                 } 
                 return com;
+            case SS_COMMAND:
+                end = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
+                if(word_on_stack(*buf))
+                {
+                    printf("popping off stack\n");
+                    pop();
+                }
+                else
+                    error(1, 0, "Cannot create subshell adjacent to simple command ... exiting\n");
+                switch(end)
+                {
+                    case END_OF_FILE:
+                    case END_OF_LINE:
+                        return com;
+                    case MORE_ARGS:
+                        error(1, 0, "Cannont have more arguments after subshell ... exiting\n");
+                    case CHAIN_COMMAND:
+                        return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com);
+                    
+                }         
             case CHAIN_COMMAND:
                 return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com);
             case MORE_ARGS:
@@ -723,7 +899,9 @@ make_command_stream (int (*get_next_byte) (void *),
         break;
     if(c != NULL)
         add_command(stream, c);
-  } 
+  }
+    if(!stack_is_empty())
+        error(1, 0, "Items on stack, syntax error detected ... exiting\n");
 
     return stream;
 }

@@ -39,9 +39,9 @@ done
 
 a | b
 c|d|e
-
+# do not read this
 a;b
-c;d;
+c;d; #do no read this
 e;f;g;h
 i;j;k;l;
 
@@ -57,4 +57,6 @@ a<b>c |d<e>f|g<h>i
 while A
 do B
 done
+
+# do not read this thing
 
