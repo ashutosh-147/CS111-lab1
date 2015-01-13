@@ -593,6 +593,10 @@ command_t create_command_based_on_buf(char **buf, size_t *buf_size, size_t *max_
 //        printf("creating while command\n");
         return create_while_or_until_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, true);
     }
+    else if(strcmp("|", *buf) == 0 || strcmp(";", *buf) == 0 || strcmp("<", *buf) == 0 || strcmp(">", *buf) == 0)
+    {
+        error(1, 0, "cannot start command with %s\n", *buf);
+    }
     else
     {
 //        printf("creating simple command\n");
