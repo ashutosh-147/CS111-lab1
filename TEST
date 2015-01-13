@@ -20,6 +20,16 @@ done
 do z
 done
 
+while
+while x
+do y
+done
+do
+while z
+do a
+done
+done
+
 while while m
 do n
 done
