@@ -515,48 +515,8 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
 command_t create_subshell_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof);
 command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, enum end_of_word first_word_status);
 
-// need to a check word on stack option
-command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool check_stack)
+command_t create_command_based_on_buf(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, enum end_of_word end)
 {
-
-///*
-    enum end_of_word end;
-    
-    do
-    {
-        end = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
-        switch(end)
-        {
-            case END_OF_FILE:
-                *eof = true;
-                return NULL;
-            case SS_COMMAND:
-            case END_OF_LINE:
-            case CHAIN_COMMAND:
-            case MORE_ARGS:
-                break;
-        }        
-    }
-    while(isEmptyString(*buf));
-//*/
-
-//    enum end_of_word end = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
-
-    printf("creating command based on: %s\n", *buf);
-    if(end == END_OF_FILE)
-    {
-        *eof = true;
-        return NULL;
-    }
-    if(check_stack)
-    {
-        if(word_on_stack(*buf))
-        {
-            printf("popping off stack\n");
-            pop();
-            return NULL;
-        }
-    }
     if(isEmptyString(*buf))
     {
         return NULL;
@@ -598,7 +558,95 @@ command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*g
         printf("creating simple command\n");
         return create_simple_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, end);
 	}
+
 }
+
+command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool check_stack)
+{
+
+///*
+    enum end_of_word end;
+    
+    do
+    {
+        end = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
+        switch(end)
+        {
+            case END_OF_FILE:
+                *eof = true;
+                return NULL;
+            case SS_COMMAND:
+            case END_OF_LINE:
+            case CHAIN_COMMAND:
+            case MORE_ARGS:
+                break;
+        }        
+    }
+    while(isEmptyString(*buf));
+//*/
+
+//    enum end_of_word end = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
+
+    //printf("creating command based on: %s\n", *buf);
+    if(end == END_OF_FILE)
+    {
+        *eof = true;
+        return NULL;
+    }
+    if(check_stack)
+    {
+        if(word_on_stack(*buf))
+        {
+            printf("popping off stack\n");
+            pop();
+            return NULL;
+        }
+    }
+
+    return create_command_based_on_buf(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, end);
+
+/*    if(isEmptyString(*buf))
+    {
+        return NULL;
+    }
+/*    if(strcmp("if", *buf) == 0)
+    {
+        
+    }
+    else if(strcmp("|", *buf) == 0)
+    {
+
+    }
+    else if(strcmp(";", *buf) == 0)
+    {
+
+    }
+    else if(strcmp("(", *buf) == 0)
+    {
+        printf("creating subshell command\n");
+        return create_subshell_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof);
+    }
+    else if(strcmp(")", *buf) == 0)
+    {
+        error(1, 0, "Cannot create a new command starting with ')' ... exiting\n");
+        return NULL;
+    }
+    else if(strcmp("until", *buf) == 0)
+    {
+        printf("creating until command\n");
+        return create_while_or_until_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, false);
+    }
+    else if(strcmp("while", *buf) == 0)
+    {
+        printf("creating while command\n");
+        return create_while_or_until_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, true);
+    }
+    else
+    {
+        printf("creating simple command\n");
+        return create_simple_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, end);
+	}
+*/}
 
 // creates command for | ; < >
 command_t create_chain_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command)
@@ -702,6 +750,28 @@ command_t create_sequence_command(char **buf, size_t *buf_size, size_t *max_size
     }
 }
 
+command_t create_sequence_after_loop(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command, enum end_of_word end)
+{
+    command_t com = checked_malloc(sizeof(struct command));
+    com->status = -1;
+    com->type = SEQUENCE_COMMAND;
+    com->input = NULL;
+    com->output = NULL;
+
+    command_t second_command = create_command_based_on_buf(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, end);
+    
+    if(second_command == NULL)
+    {
+        return first_command;
+    }
+    else
+    {
+        com->u.command[0] = first_command;
+        com->u.command[1] = second_command;
+        return com;
+    }
+}
+
 command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command, bool isInput)
 {
     enum end_of_word eow = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
@@ -762,6 +832,7 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
     com->input = NULL;
     com->output = NULL;
 
+    printf("pushing do\n");
     push(DO);//onto stack
     com->u.command[0] = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, false);
 
@@ -770,7 +841,8 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
         return NULL;
     }
 
-    if(peek() == DO)
+    //if(peek() == DO)
+    while(peek() == DO)
     {
         eow = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
         
@@ -786,19 +858,23 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
             case SS_COMMAND:
                 if(word_on_stack(*buf))
                 {
+                    printf("popping do and pushing done\n");
                     pop();
                 }
                 else
                 {
-                    error(1, 0, "Unable to find 'do' ... exiting\n");
-                    return NULL;
+                    com->u.command[0] = create_sequence_after_loop(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com->u.command[0], eow);
+                    if(*eof)
+                        return NULL;
                 }
                 break; 
         }
     }
 
     com->u.command[1] = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, false);
-    if(peek() == DONE)
+    
+    //if(peek() == DONE)
+    while(peek() == DONE)
     {
         eow = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
         
@@ -812,12 +888,14 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
             case SS_COMMAND:
                 if(word_on_stack(*buf))
                 {
+                    printf("popping done\n");
                     pop();
                 }
                 else
                 {
-                    error(1, 0, "Unable to find done ... exiting\n");
-                    return NULL;
+                    com->u.command[1] = create_sequence_after_loop(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com->u.command[1], eow);
+                    if(*eof)
+                        return NULL;
                 }
                 break; 
         }
