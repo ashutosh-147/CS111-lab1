@@ -562,6 +562,22 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
 command_t create_subshell_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof);
 command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, enum end_of_word first_word_status);
 
+bool invalid_start_of_command(char ** buf)
+{
+    return strcmp(")", *buf) == 0 ||
+           strcmp("|", *buf) == 0 || strcmp(";", *buf) == 0 ||
+           strcmp("<", *buf) == 0 || strcmp(">", *buf) == 0 ||
+           strcmp("do", *buf) == 0 || strcmp("done", *buf) == 0 || 
+           strcmp("then", *buf) == 0 || strcmp("else", *buf) == 0 || strcmp("fi", *buf) == 0;
+    /*if(strcmp(")", *buf) == 0 || strcmp("|", *buf) == 0 || strcmp(";", *buf) == 0 || strcmp("<", *buf) == 0 || strcmp(">", *buf) == 0)
+        return true;
+    if(strcmp("do", *buf) == 0 || strcmp("done", *buf) == 0)
+        return true;
+    if(strcmp("then", *buf) == 0 || strcmp("else", *buf) == 0 || strcmp("fi", *buf) == 0)
+        return true;
+    return false;*/
+}
+
 command_t create_command_based_on_buf(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, enum end_of_word end)
 {
     if(isEmptyString(*buf))
@@ -578,11 +594,6 @@ command_t create_command_based_on_buf(char **buf, size_t *buf_size, size_t *max_
 //        printf("creating subshell command\n");
         return create_subshell_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof);
     }
-    else if(strcmp(")", *buf) == 0)
-    {
-        error(1, 0, "Cannot create a new command starting with ')' ... exiting\n");
-        return NULL;
-    }
     else if(strcmp("until", *buf) == 0)
     {
 //        printf("creating until command\n");
@@ -593,9 +604,10 @@ command_t create_command_based_on_buf(char **buf, size_t *buf_size, size_t *max_
 //        printf("creating while command\n");
         return create_while_or_until_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, true);
     }
-    else if(strcmp("|", *buf) == 0 || strcmp(";", *buf) == 0 || strcmp("<", *buf) == 0 || strcmp(">", *buf) == 0)
+    else if(invalid_start_of_command(buf))
     {
-        error(1, 0, "cannot start command with %s\n", *buf);
+        error(1, 0, "Cannot create a new command starting with '%s' ... exiting\n", *buf);
+        return NULL;
     }
     else
     {
@@ -642,6 +654,8 @@ command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*g
         if(word_on_stack(*buf))
         {
 //            printf("popping off stack\n");
+            if((strcmp("done", *buf) == 0 || strcmp("fi", *buf) == 0) && end == MORE_ARGS)
+                error(1, 0, "Cannot have additional commands directly after '%s'\n", *buf);
             pop(*buf);
             return NULL;
         }
@@ -1028,6 +1042,8 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
                 if(word_on_stack(*buf))
                 {
 //                    printf("popping do and pushing done\n");
+                    if(eow == MORE_ARGS)
+                        error(1, 0, "Cannot have commands directly after 'fi'\n");
                     pop(*buf);
                 }
                 else
@@ -1058,6 +1074,8 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
                 if(word_on_stack(*buf))
                 {
 //                    printf("popping done\n");
+                    if(eow == MORE_ARGS)
+                        error(1, 0, "Cannot have commands directly after 'done'\n");
                     pop(*buf);
                 }
                 else
