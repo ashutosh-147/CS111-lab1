@@ -1,3 +1,5 @@
+Ashutosh Shiledar, Nicholas Chung
+
 Lab 1a
 Our current implementation of the shell produces warnings regarding the 'prepare_profiling' and 'execute_command' functions in the 'execute_command.c' file because those functions correspond to lab 1b and 1c.
 Beyond warnings (which we suppress by voiding the option 'Werror' in Makefile), there are no known limitations.
