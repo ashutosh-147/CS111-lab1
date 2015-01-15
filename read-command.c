@@ -182,6 +182,7 @@ enum end_of_word
     END_OF_FILE,
     END_OF_LINE,
     CHAIN_COMMAND,
+    IO_REDIRECTION,
     MORE_ARGS,
     SS_COMMAND,
 };
@@ -207,9 +208,10 @@ enum end_of_word check_future_char(int (*get_next_byte) (void *), void *get_next
     {
         case '|':
         case ';':
+            return CHAIN_COMMAND;
         case '<':
         case '>':
-            return CHAIN_COMMAND;
+            return IO_REDIRECTION;
         case '(':
         case ')':
             return SS_COMMAND;
@@ -281,9 +283,12 @@ enum end_of_word get_next_word(char **buf, size_t *buf_size, size_t *max_size, i
                 append_char(buf, '\0', buf_size, max_size);
                 lastChar = (char) nb;
                 return SS_COMMAND;
-            case '|':
             case '<':
             case '>':
+                append_char(buf, '\0', buf_size, max_size);
+                lastChar = (char) nb;
+                return IO_REDIRECTION;                
+            case '|':
             case ';':
                 append_char(buf, '\0', buf_size, max_size);
                 lastChar = (char) nb;
@@ -314,9 +319,10 @@ enum end_of_word get_next_word(char **buf, size_t *buf_size, size_t *max_size, i
                 {
                     case '(':
                         return SS_COMMAND;
-                    case '|':
                     case '<':
                     case '>':
+                        return IO_REDIRECTION;
+                    case '|':
                     case ';':
                         return CHAIN_COMMAND;
                     case '\n':
@@ -400,7 +406,8 @@ command_t get_command(command_stream_t cs)
 
 command_t create_pipe_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command);
 command_t create_sequence_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command);
-command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command, bool isInput);
+//command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command, bool isInput);
+command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command, enum end_of_word *eow);
 command_t create_if_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof);
 command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool isWhile);
 command_t create_subshell_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof);
@@ -464,6 +471,7 @@ command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*g
             case SS_COMMAND:
             case END_OF_LINE:
             case CHAIN_COMMAND:
+            case IO_REDIRECTION:
             case MORE_ARGS:
                 break;
         }        
@@ -504,6 +512,7 @@ command_t create_chain_command(char **buf, size_t *buf_size, size_t *max_size, i
             case SS_COMMAND:
                 return first_command;
             case CHAIN_COMMAND:
+            case IO_REDIRECTION:
                 error(1, 0, "%d: cannot have consecutive chain commands ... exiting\n", current_line);
                 return first_command;
             case MORE_ARGS:
@@ -519,6 +528,7 @@ command_t create_chain_command(char **buf, size_t *buf_size, size_t *max_size, i
             *eof = true;
         case END_OF_LINE:
         case CHAIN_COMMAND:
+        case IO_REDIRECTION:
             error(1, 0, "%d: cannot have consecutive chain commands ... exiting\n", current_line);
             return first_command;
         case MORE_ARGS:
@@ -526,18 +536,18 @@ command_t create_chain_command(char **buf, size_t *buf_size, size_t *max_size, i
             break;
     }
     
-    if(strcmp("|", *buf) == 0)
-    {
+    //if(strcmp("|", *buf) == 0)
+    //{
         return create_pipe_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, first_command);
-    }
-    else if(strcmp("<", *buf) == 0)
-    {
-        return add_io_redirection(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, first_command, true);
-    }
-    else
-    {
-        return add_io_redirection(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, first_command, false);
-    }
+    //}
+    //else if(strcmp("<", *buf) == 0)
+    //{
+    //    return add_io_redirection(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, first_command, true);
+    //}
+    //else
+    //{
+    //    return add_io_redirection(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, first_command, false);
+    //}
 }
 
 command_t create_pipe_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command)
@@ -607,11 +617,30 @@ command_t create_sequence_after_loop(char **buf, size_t *buf_size, size_t *max_s
     }
 }
 
-command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command, bool isInput)
+//command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command, bool isInput)
+command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command, enum end_of_word *eow)
 {
-    enum end_of_word eow = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
+    *eow = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
 
-    switch(eow)
+    switch(*eow)
+    {
+        case END_OF_FILE:
+            *eof = true;
+        case SS_COMMAND:
+        case END_OF_LINE:
+        case CHAIN_COMMAND:
+        case IO_REDIRECTION:
+            error(1, 0, "%d: cannot have this stuff as io redirect parameters\n", current_line);
+        case MORE_ARGS:
+            break;
+    }
+
+    char ior_type[5];
+    strcpy(ior_type, *buf);
+
+    *eow = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
+
+    switch(*eow)
     {
         case END_OF_FILE:
             *eof = true;
@@ -619,6 +648,7 @@ command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int
             error(1, 0, "%d: cannot redirect I/O into or out of subshell ... exiting\n", current_line);
         case END_OF_LINE:
         case CHAIN_COMMAND:
+        case IO_REDIRECTION:
             if(isEmptyString(*buf))
             {
                 error(1, 0, "%d: cannot have chain command after io redirection ... exiting\n", current_line);
@@ -628,7 +658,7 @@ command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int
             break;
     }
 
-    if(isInput)
+    if(strcmp("<", ior_type) == 0)
     {
         if(first_command->input != NULL || first_command->output != NULL)
         {
@@ -649,10 +679,12 @@ command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int
         strcpy(first_command->output, *buf);
     }
 
-    if(eow == CHAIN_COMMAND)
-    {
-        return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, first_command);
-    }
+    //if(eow == CHAIN_COMMAND)
+    //{
+    //    return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, first_command);
+    //}
+    if(*eow == IO_REDIRECTION)
+        return add_io_redirection(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, first_command, eow);
     return first_command;
 }
 
@@ -687,6 +719,9 @@ command_t create_if_command(char ** buf, size_t *buf_size, size_t *max_size, int
                 *eof = true;
             case CHAIN_COMMAND:
                 error(1, 0, "%d: cannot define chain command after 'then' ... exiting\n", current_line);
+                return NULL;
+            case IO_REDIRECTION:
+                error(1, 0, "%d: cannot define io redirection after 'then' ... exiting\n", current_line);
                 return NULL;
             case END_OF_LINE:
             case MORE_ARGS:
@@ -723,6 +758,9 @@ command_t create_if_command(char ** buf, size_t *buf_size, size_t *max_size, int
             case CHAIN_COMMAND:
                 error(1, 0, "%d: cannot define chain command after 'else' ... exiting\n", current_line);
                 return NULL;
+            case IO_REDIRECTION:
+                error(1, 0, "%d: cannot define io redirection after 'else' ... exiting\n", current_line);
+                return NULL;
             case END_OF_LINE:
             case MORE_ARGS:
             case SS_COMMAND:
@@ -755,6 +793,7 @@ command_t create_if_command(char ** buf, size_t *buf_size, size_t *max_size, int
                 *eof = true;
             case END_OF_LINE:
             case CHAIN_COMMAND:
+            case IO_REDIRECTION:
             case MORE_ARGS:
             case SS_COMMAND:
                 if(word_on_stack(*buf))
@@ -772,6 +811,8 @@ command_t create_if_command(char ** buf, size_t *buf_size, size_t *max_size, int
     }
     if(eow == CHAIN_COMMAND)
         return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com);
+    else if(eow == IO_REDIRECTION)
+        return add_io_redirection(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com, &eow);
     return com;
 }
 
@@ -804,13 +845,16 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
             case CHAIN_COMMAND:
                 error(1, 0, "%d: cannot define chain command after 'do' ... exiting\n", current_line);
                 return NULL;
+            case IO_REDIRECTION:
+                error(1, 0, "%d: cannot define io rediection after 'do' ... exiting\n", current_line);
+                return NULL;
             case END_OF_LINE:
             case MORE_ARGS:
             case SS_COMMAND:
                 if(word_on_stack(*buf))
                 {
                     if(eow == MORE_ARGS)
-                        error(1, 0, "%d: cannot have commands directly after 'fi'\n", current_line);
+                        error(1, 0, "%d: cannot have commands directly after 'do'\n", current_line);
                     pop(*buf);
                 }
                 else
@@ -837,10 +881,12 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
             case CHAIN_COMMAND:
             case MORE_ARGS:
             case SS_COMMAND:
+            case IO_REDIRECTION:
                 if(word_on_stack(*buf))
                 {
                     if(eow == MORE_ARGS)
                         error(1, 0, "%d: cannot have commands directly after 'done'\n", current_line);
+                    else if(eow )
                     pop(*buf);
                 }
                 else
@@ -854,6 +900,8 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
     }
     if(eow == CHAIN_COMMAND)
         return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com);
+    else if(eow == IO_REDIRECTION)
+        return add_io_redirection(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com, &eow);
     return com;
 }
 
@@ -880,6 +928,7 @@ command_t create_subshell_command(char ** buf, size_t *buf_size, size_t *max_siz
                 *eof = true;
             case END_OF_LINE:
             case CHAIN_COMMAND:
+            case IO_REDIRECTION:
             case SS_COMMAND:
                 if(strcmp("(", *buf) == 0)
                     error(1, 0, "%d: cannot have adjacent subshells ... exiting\n", current_line);
@@ -897,9 +946,9 @@ command_t create_subshell_command(char ** buf, size_t *buf_size, size_t *max_siz
         }
     }
     if(eow == CHAIN_COMMAND)
-    {
         return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com);
-    }
+    else if(eow == IO_REDIRECTION)
+        return add_io_redirection(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com, &eow);
     return com;
 }
 
@@ -939,6 +988,10 @@ command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, 
                 return com;    
             case CHAIN_COMMAND:
                 return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com);
+            case IO_REDIRECTION:
+                com = add_io_redirection(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com, &end);
+                **buf = '\0';
+                break;
             case MORE_ARGS:
                 end = get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
         }
