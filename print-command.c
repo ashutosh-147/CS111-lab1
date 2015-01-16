@@ -75,9 +75,25 @@ command_indented_print (int indent, command_t c)
     }
 
   if (c->input)
-    printf ("<%s", c->input);
+  {
+    if(c->input_stderr)
+      printf ("<&%s", c->input);
+    else if(c->same_input_output)
+      printf ("<>%s", c->input);
+    else
+      printf ("<%s", c->input);
+  }
   if (c->output)
-    printf (">%s", c->output);
+  {
+    if(c->output_stderr)
+      printf (">&%s", c->output);
+    else if(c->append_output)
+      printf (">>%s", c->output);
+    else if(c->override_noclobber)
+      printf (">|%s", c->output);
+    else if(!c->same_input_output)
+      printf (">%s", c->output);
+  }
 }
 
 void

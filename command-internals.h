@@ -15,6 +15,8 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#include <stdbool.h>
+
 enum command_type
   {
     IF_COMMAND,		 // if A then B else C fi
@@ -36,7 +38,13 @@ struct command
 
   // I/O redirections, or null if none.
   char *input;
+  bool input_stderr;
+  bool same_input_output;
+
   char *output;
+  bool output_stderr;
+  bool append_output;
+  bool override_noclobber;
 
   union
   {

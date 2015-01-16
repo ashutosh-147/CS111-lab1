@@ -192,15 +192,16 @@ enum end_of_word
 char lastChar = '\0';
 unsigned int current_line = 1;
 
-enum end_of_word check_future_char(int (*get_next_byte) (void *), void *get_next_byte_argument)
+enum end_of_word check_future_char(int (*get_next_byte) (void *), void *get_next_byte_argument, char first_letter)
 {
     int nb;
-    char nb_c;
-    do
+    char nb_c = first_letter;
+    while(nb_c == ' ' || nb_c == '\t')    
+    //do
     {
         nb = get_next_byte(get_next_byte_argument);
         nb_c = (char) nb;
-    } while(nb_c == ' ' || nb_c == '\t');
+    } //while(nb_c == ' ' || nb_c == '\t');
     if(nb == -1)
         return END_OF_FILE;
     lastChar = nb_c;
@@ -242,16 +243,31 @@ enum end_of_word get_next_word(char **buf, size_t *buf_size, size_t *max_size, i
     {
         switch(lastChar)
         {
-            case '|':
-            case ';':
             case '<':
             case '>':
+                append_char(buf, lastChar, buf_size, max_size);
+                nb = get_next_byte(get_next_byte_argument);
+                if(nb == -1)
+                    return END_OF_FILE;
+                if((char) nb == '>' || (char) nb == '&' || (char) nb == '|')
+                {
+                    append_char(buf, (char) nb, buf_size, max_size);
+                    append_char(buf, '\0', buf_size, max_size);
+                    return check_future_char(get_next_byte, get_next_byte_argument, ' ');
+                }
+                else
+                {
+                    append_char(buf, '\0', buf_size, max_size);
+                    return check_future_char(get_next_byte, get_next_byte_argument, (char) nb);
+                }
+            case '|':
+            case ';':
             case '(':
             case ')':
                 append_char(buf, lastChar, buf_size, max_size);
                 append_char(buf, '\0', buf_size, max_size);
                 lastChar = '\0';
-                return check_future_char(get_next_byte, get_next_byte_argument);
+                return check_future_char(get_next_byte, get_next_byte_argument, ' ');
             case '\n':
                 lastChar = '\0';
                 return get_next_word(buf, buf_size, max_size, get_next_byte, get_next_byte_argument);
@@ -404,6 +420,21 @@ command_t get_command(command_stream_t cs)
 /////////////////////////////////////////////////
 /////////////////////////////////////////////////
 
+command_t init_command(enum command_type type)
+{
+    command_t com = checked_malloc(sizeof(struct command));
+    com->status = -1;
+    com->type = type;
+    com->input = NULL;
+    com->output = NULL;
+    com->input_stderr = false;
+    com->same_input_output = false;
+    com->output_stderr = false;
+    com->append_output = false;
+    com->override_noclobber = false;
+    return com;
+}
+
 command_t create_pipe_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command);
 command_t create_sequence_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command);
 //command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command, bool isInput);
@@ -552,11 +583,11 @@ command_t create_chain_command(char **buf, size_t *buf_size, size_t *max_size, i
 
 command_t create_pipe_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command)
 {
-    command_t com = checked_malloc(sizeof(struct command));
-    com->status = -1;
-    com->type = PIPE_COMMAND;
-    com->input = NULL;
-    com->output = NULL;
+    command_t com = init_command(PIPE_COMMAND);//checked_malloc(sizeof(struct command));
+//    com->status = -1;
+//    com->type = PIPE_COMMAND;
+//    com->input = NULL;
+//    com->output = NULL;
 
     command_t second_command = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, false);
 
@@ -575,11 +606,11 @@ command_t create_pipe_command(char **buf, size_t *buf_size, size_t *max_size, in
 
 command_t create_sequence_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command)
 {
-    command_t com = checked_malloc(sizeof(struct command));
-    com->status = -1;
-    com->type = SEQUENCE_COMMAND;
-    com->input = NULL;
-    com->output = NULL;
+    command_t com = init_command(SEQUENCE_COMMAND);//checked_malloc(sizeof(struct command));
+//    com->status = -1;
+//    com->type = SEQUENCE_COMMAND;
+//    com->input = NULL;
+//    com->output = NULL;
 
     command_t second_command = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, true);
     
@@ -597,11 +628,11 @@ command_t create_sequence_command(char **buf, size_t *buf_size, size_t *max_size
 
 command_t create_sequence_after_loop(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, command_t first_command, enum end_of_word end)
 {
-    command_t com = checked_malloc(sizeof(struct command));
-    com->status = -1;
-    com->type = SEQUENCE_COMMAND;
-    com->input = NULL;
-    com->output = NULL;
+    command_t com = init_command(SEQUENCE_COMMAND);//checked_malloc(sizeof(struct command));
+//    com->status = -1;
+//    com->type = SEQUENCE_COMMAND;
+//    com->input = NULL;
+//    com->output = NULL;
 
     command_t second_command = create_command_based_on_buf(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, end);
     
@@ -658,12 +689,24 @@ command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int
             break;
     }
 
-    if(strcmp("<", ior_type) == 0)
+    if('<' == ior_type[0])
     {
-        if(first_command->input != NULL || first_command->output != NULL)
+        if(first_command->input != NULL)
         {
-            error(1, 0, "%d: must define input first - Cannot define input twice ... exiting\n", current_line);
+            error(1, 0, "%d: cannot define input twice ... exiting\n", current_line);
             return first_command;
+        } else if(first_command->output != NULL)
+        {
+            error(1, 0, "%d: must define input first ... exiting\n", current_line);
+            return first_command;
+        }
+        if('&' == ior_type[1])
+            first_command->input_stderr = true;
+        else if('>' == ior_type[1])
+        {
+            first_command->same_input_output = true;
+            first_command->output = checked_malloc(*buf_size);
+            strcpy(first_command->output, *buf);
         }
         first_command->input = checked_malloc(*buf_size);
         strcpy(first_command->input, *buf);
@@ -675,6 +718,12 @@ command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int
             error(1, 0, "%d: cannot define output twice ... exiting\n", current_line);
             return first_command;
         }
+        if('&' == ior_type[1])
+            first_command->output_stderr = true;
+        else if('>' == ior_type[1])
+            first_command->append_output = true;
+        else if('|' == ior_type[1])
+            first_command->override_noclobber = true;
         first_command->output = checked_malloc(*buf_size);
         strcpy(first_command->output, *buf);
     }
@@ -692,14 +741,14 @@ command_t create_if_command(char ** buf, size_t *buf_size, size_t *max_size, int
 {
     enum end_of_word eow;
 
-    command_t com = checked_malloc(sizeof(struct command));
-    com->status = -1;
-    com->type = IF_COMMAND;
-    com->input = NULL;
-    com->output = NULL;
-    com->u.command[0] = NULL;
-    com->u.command[1] = NULL;
-    com->u.command[2] = NULL;
+    command_t com = init_command(IF_COMMAND);//checked_malloc(sizeof(struct command));
+//    com->status = -1;
+//    com->type = IF_COMMAND;
+//    com->input = NULL;
+//    com->output = NULL;
+//    com->u.command[0] = NULL;
+//    com->u.command[1] = NULL;
+//    com->u.command[2] = NULL;
 
     push(THEN);
     com->u.command[0] = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, false);
@@ -820,11 +869,11 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
 {
     enum end_of_word eow;
     
-    command_t com = checked_malloc(sizeof(struct command));
-    com->status = -1;
-    com->type = isWhile ? WHILE_COMMAND : UNTIL_COMMAND;
-    com->input = NULL;
-    com->output = NULL;
+    command_t com = init_command(isWhile ? WHILE_COMMAND : UNTIL_COMMAND);//checked_malloc(sizeof(struct command));
+//    com->status = -1;
+//    com->type = isWhile ? WHILE_COMMAND : UNTIL_COMMAND;
+//    com->input = NULL;
+//    com->output = NULL;
 
     push(DO);
     com->u.command[0] = create_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, false);
@@ -907,11 +956,11 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
 
 command_t create_subshell_command(char ** buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof)
 {
-    command_t com = checked_malloc(sizeof(struct command));
-    com->status = -1;
-    com->type = SUBSHELL_COMMAND;
-    com->input = NULL;
-    com->output = NULL;
+    command_t com = init_command(SUBSHELL_COMMAND);//checked_malloc(sizeof(struct command));
+//    com->status = -1;
+//    com->type = SUBSHELL_COMMAND;
+//    com->input = NULL;
+//    com->output = NULL;
 
     enum end_of_word eow;
 
@@ -954,11 +1003,11 @@ command_t create_subshell_command(char ** buf, size_t *buf_size, size_t *max_siz
 
 command_t create_simple_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, enum end_of_word first_word_status)
 {
-    command_t com = checked_malloc(sizeof(struct command));
-    com->status = -1;
-    com->type = SIMPLE_COMMAND;
-    com->input = NULL;
-    com->output = NULL;
+    command_t com = init_command(SIMPLE_COMMAND);//checked_malloc(sizeof(struct command));
+//    com->status = -1;
+//    com->type = SIMPLE_COMMAND;
+//    com->input = NULL;
+//    com->output = NULL;
     com->u.word = checked_malloc(sizeof(char*));
     com->u.word[0] = NULL;
     size_t numLines = 1;
