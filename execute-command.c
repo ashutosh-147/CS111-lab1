@@ -48,8 +48,7 @@ command_status (command_t c)
 }
 
 void run_command(command_t c, int in, int out);
-void run_pipe_command(command_t c, int in, int out);
-void run_simple_command(command_t c, int in, int out);
+
 
 void
 execute_command (command_t c, int profiling)
@@ -63,23 +62,53 @@ execute_command (command_t c, int profiling)
 /////////////////////////////////////////////////
 /////////////////////////////////////////////////
 
+void run_if_command(command_t c, int in, int out);
+void run_pipe_command(command_t c, int in, int out);
+void run_sequence_command(command_t c, int in, int out);
+void run_simple_command(command_t c, int in, int out);
+void run_subshell_command(command_t c, int in, int out);
+//void run_until_command(command_t c, int in, int out);
+//void run_while_command(command_t c, int in, int out);
+
 void run_command(command_t c, int in, int out)
 {
     switch(c->type)
     {
-        case IF_COMMAND:
-        case SEQUENCE_COMMAND:
-        case SUBSHELL_COMMAND:
         case UNTIL_COMMAND:
         case WHILE_COMMAND:
             error(1, 0, "haven't implemented this yet, why you trying to execute this foo??\n");
+        case IF_COMMAND:
+            printf("executing if\n");
+            run_if_command(c, in, out); break;
         case PIPE_COMMAND:
             printf("executing pipe\n");
             run_pipe_command(c, in, out); break;
+        case SEQUENCE_COMMAND:
+            printf("executing sequence\n");
+            run_sequence_command(c, in, out); break;
         case SIMPLE_COMMAND:
             printf("executing simple\n");
             run_simple_command(c, in, out); break;
+        case SUBSHELL_COMMAND:
+            printf("executing subshell\n");
+            run_subshell_command(c, in, out); break;
     }
+}
+
+void run_if_command(command_t c, int in, int out)
+{
+    run_command(c->u.command[0], in, out);
+    if(command_status(c->u.command[0]) == 0)
+    {
+        run_command(c->u.command[1], 0, out);
+        c->status = command_status(c->u.command[1]);
+    }
+    else
+    {
+        run_command(c->u.command[2], 0, out);
+        c->status = command_status(c->u.command[2]);
+    }
+    printf("exited if with status %d\n", c->status);
 }
 
 void run_pipe_command(command_t c, int in, int out)
@@ -92,6 +121,18 @@ void run_pipe_command(command_t c, int in, int out)
     
     run_command(c->u.command[1], pipefd[0], out);
     close(pipefd[0]);
+
+    c->status = command_status(c->u.command[1]);
+    printf("exited pipe with status %d\n", c->status);
+}
+
+void run_sequence_command(command_t c, int in, int out)
+{
+    run_command(c->u.command[0], in, 1);
+    run_command(c->u.command[1], 0, out);
+
+    c->status = command_status(c->u.command[1]);
+    printf("exited sequence with status %d\n", c->status);
 }
 
 void run_simple_command(command_t c, int in, int out)
@@ -122,10 +163,16 @@ void run_simple_command(command_t c, int in, int out)
         execvp(*(c->u.word), c->u.word);
     }
     int result;
-    printf("killing command\n");
     waitpid(pid, &result, NULL);
-    printf("command finished\n");
     c->status = result;
+    printf("exited simple with status %d\n", c->status);
+}
+
+void run_subshell_command(command_t c, int in, int out)
+{
+    run_command(c->u.command[0], in, out);
+    c->status = command_status(c->u.command[0]);
+    printf("exited subshell with status %d\n", c->status);
 }
 
 /////////////////////////////////////////////////
