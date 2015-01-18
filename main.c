@@ -43,14 +43,18 @@ main (int argc, char **argv)
 {
   int command_number = 1;
   bool print_tree = false;
+  int verbose = 0;
+  int xtrace = 0;
   char const *profile_name = 0;
   program_name = argv[0];
 
   for (;;)
-    switch (getopt (argc, argv, "p:t"))
+    switch (getopt (argc, argv, "p:tvx"))
       {
       case 'p': profile_name = optarg; break;
       case 't': print_tree = true; break;
+      case 'v': verbose = 1; break;
+      case 'x': xtrace = 1; break;
       default: usage (); break;
       case -1: goto options_exhausted;
       }
@@ -76,6 +80,20 @@ main (int argc, char **argv)
 
   command_t last_command = NULL;
   command_t command;
+    if(verbose)
+    {
+        printf("verbose set\n");
+        FILE *verbose_stream = fopen (script_name, "r");
+        char **buf;
+        size_t size = 0;
+        while(getline(buf, &size, verbose_stream) != -1)
+            printf("%s", *buf);
+    }
+    if(xtrace)
+    {
+      printf("Use ENTER to step through program line by line. Don't be pressing any other characters now >:(");
+      getchar();
+        }
   while ((command = read_command_stream (command_stream)))
     {
       if (print_tree)
@@ -86,7 +104,7 @@ main (int argc, char **argv)
       else
 	{
 	  last_command = command;
-	  execute_command (command, profiling);
+	  execute_command (command, profiling, xtrace);
 	}
     }
 

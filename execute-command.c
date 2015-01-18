@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <stdbool.h>
 
 /* FIXME: You may need to add #include directives, macro definitions,
    static function definitions, etc.  */
@@ -50,9 +51,11 @@ command_status (command_t c)
 void run_command(command_t c, int in, int out);
 
 
+int xtrace;
 void
-execute_command (command_t c, int profiling)
+execute_command (command_t c, int profiling, int _xtrace)
 {
+    xtrace = _xtrace;
     run_command(c, 0, 1);
 }
 
@@ -156,6 +159,21 @@ void run_sequence_command(command_t c, int in, int out)
 
 void run_simple_command(command_t c, int in, int out)
 {
+    if(xtrace)
+    {
+        char **w = c->u.word;
+	    printf ("+ %s", *w);
+	    while (*++w)
+	        printf (" %s", *w);
+        int result = getchar();
+        if(result != 10)
+            error(1, 0, "foo, you type character(s) >:( no debug for you ... \n");
+        printf("%d\n", result);
+        //printf("\n");
+        int key;
+        //while((key = getchar()) != '\n' && key != EOF);
+        //while( != fgets(&key,1,1));
+    }
     int pipefd[2];
     pipe(pipefd);
 
