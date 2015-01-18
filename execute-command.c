@@ -20,6 +20,13 @@
 
 #include <error.h>
 
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <fcntl.h>
+
 /* FIXME: You may need to add #include directives, macro definitions,
    static function definitions, etc.  */
 
@@ -33,15 +40,96 @@ prepare_profiling (char const *name)
   return -1;
 }
 
+
 int
 command_status (command_t c)
 {
   return c->status;
 }
 
+void run_command(command_t c, int in, int out);
+void run_pipe_command(command_t c, int in, int out);
+void run_simple_command(command_t c, int in, int out);
+
 void
 execute_command (command_t c, int profiling)
 {
-  /* FIXME: Replace this with your implementation, like 'prepare_profiling'.  */
-  error (1, 0, "command execution not yet implemented");
+    run_command(c, 0, 1);
 }
+
+/////////////////////////////////////////////////
+/////////////////////////////////////////////////
+//START OF RUN_COMMAND IMPLEMENTATION
+/////////////////////////////////////////////////
+/////////////////////////////////////////////////
+
+void run_command(command_t c, int in, int out)
+{
+    switch(c->type)
+    {
+        case IF_COMMAND:
+        case SEQUENCE_COMMAND:
+        case SUBSHELL_COMMAND:
+        case UNTIL_COMMAND:
+        case WHILE_COMMAND:
+            error(1, 0, "haven't implemented this yet, why you trying to execute this foo??\n");
+        case PIPE_COMMAND:
+            printf("executing pipe\n");
+            run_pipe_command(c, in, out); break;
+        case SIMPLE_COMMAND:
+            printf("executing simple\n");
+            run_simple_command(c, in, out); break;
+    }
+}
+
+void run_pipe_command(command_t c, int in, int out)
+{
+    int pipefd[2];
+    pipe(pipefd);
+
+    run_command(c->u.command[0], in, pipefd[1]);
+    close(pipefd[1]);
+    
+    run_command(c->u.command[1], pipefd[0], out);
+    close(pipefd[0]);
+}
+
+void run_simple_command(command_t c, int in, int out)
+{
+    int pid = fork();
+    if(pid < 0)
+        error(1, 0, "fork error\n");
+    if(pid == 0)
+    {
+        if(c->input != NULL)
+        {
+            in = open(c->input, O_RDONLY);
+            dup2(in, 0);
+            close(in);
+        }
+        else
+            dup2(in, 0);
+
+        if(c->output != NULL)
+        {
+            out = open(c->output, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+            dup2(out, 1);
+            close(out);
+        }
+        else
+            dup2(out, 1);
+
+        execvp(*(c->u.word), c->u.word);
+    }
+    int result;
+    printf("killing command\n");
+    waitpid(pid, &result, NULL);
+    printf("command finished\n");
+    c->status = result;
+}
+
+/////////////////////////////////////////////////
+/////////////////////////////////////////////////
+//END OF RUN_COMMAND IMPLEMENTATION
+/////////////////////////////////////////////////
+/////////////////////////////////////////////////
