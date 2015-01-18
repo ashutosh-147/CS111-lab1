@@ -67,36 +67,55 @@ void run_pipe_command(command_t c, int in, int out);
 void run_sequence_command(command_t c, int in, int out);
 void run_simple_command(command_t c, int in, int out);
 void run_subshell_command(command_t c, int in, int out);
-//void run_until_command(command_t c, int in, int out);
-//void run_while_command(command_t c, int in, int out);
+void run_until_command(command_t c, int in, int out);
+void run_while_command(command_t c, int in, int out);
 
 void run_command(command_t c, int in, int out)
 {
     switch(c->type)
     {
-        case UNTIL_COMMAND:
-        case WHILE_COMMAND:
-            error(1, 0, "haven't implemented this yet, why you trying to execute this foo??\n");
         case IF_COMMAND:
-            printf("executing if\n");
+//            printf("executing if\n");
             run_if_command(c, in, out); break;
         case PIPE_COMMAND:
-            printf("executing pipe\n");
+//            printf("executing pipe\n");
             run_pipe_command(c, in, out); break;
         case SEQUENCE_COMMAND:
-            printf("executing sequence\n");
+//            printf("executing sequence\n");
             run_sequence_command(c, in, out); break;
         case SIMPLE_COMMAND:
-            printf("executing simple\n");
+//            printf("executing simple\n");
             run_simple_command(c, in, out); break;
         case SUBSHELL_COMMAND:
-            printf("executing subshell\n");
+//            printf("executing subshell\n");
             run_subshell_command(c, in, out); break;
+        case UNTIL_COMMAND:
+//            printf("executing until\n");
+            run_until_command(c, in, out); break;
+        case WHILE_COMMAND:
+//            printf("executing while\n");
+            run_while_command(c, in, out); break;
+    }
+}
+
+void set_io(command_t c, int *in, int *out)
+{
+    if(c->input != NULL)
+    {
+        in = open(c->input, O_RDONLY);
+        close(in);
+    }
+
+    if(c->output != NULL)
+    {
+        out = open(c->output, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+        close(out);
     }
 }
 
 void run_if_command(command_t c, int in, int out)
 {
+    set_io(c, &in, &out);
     run_command(c->u.command[0], in, out);
     if(command_status(c->u.command[0]) == 0)
     {
@@ -108,7 +127,7 @@ void run_if_command(command_t c, int in, int out)
         run_command(c->u.command[2], 0, out);
         c->status = command_status(c->u.command[2]);
     }
-    printf("exited if with status %d\n", c->status);
+//    printf("exited if with status %d\n", c->status);
 }
 
 void run_pipe_command(command_t c, int in, int out)
@@ -123,7 +142,7 @@ void run_pipe_command(command_t c, int in, int out)
     close(pipefd[0]);
 
     c->status = command_status(c->u.command[1]);
-    printf("exited pipe with status %d\n", c->status);
+//    printf("exited pipe with status %d\n", c->status);
 }
 
 void run_sequence_command(command_t c, int in, int out)
@@ -132,7 +151,7 @@ void run_sequence_command(command_t c, int in, int out)
     run_command(c->u.command[1], 0, out);
 
     c->status = command_status(c->u.command[1]);
-    printf("exited sequence with status %d\n", c->status);
+//    printf("exited sequence with status %d\n", c->status);
 }
 
 void run_simple_command(command_t c, int in, int out)
@@ -177,14 +196,41 @@ void run_simple_command(command_t c, int in, int out)
         error(1, 0, "cannot find command '%s' ... exiting\n", *(c->u.word));
     close(pipefd[0]);
     c->status = result;
-    printf("exited simple with status %d\n", c->status);
+//    printf("exited simple with status %d\n", c->status);
 }
 
 void run_subshell_command(command_t c, int in, int out)
 {
+    set_io(c, &in, &out);
     run_command(c->u.command[0], in, out);
     c->status = command_status(c->u.command[0]);
-    printf("exited subshell with status %d\n", c->status);
+//    printf("exited subshell with status %d\n", c->status);
+}
+
+void run_until_command(command_t c, int in, int out)
+{
+    set_io(c, &in, &out);
+    run_command(c->u.command[0], in, out);
+    while(command_status(c->u.command[0]) != 0)
+    {
+        run_command(c->u.command[1], 0, out);
+        run_command(c->u.command[0], in, out);
+    }
+    c->status = command_status(c->u.command[0]);
+//    printf("exited until with status %d\n", c->status);
+}
+
+void run_while_command(command_t c, int in, int out)
+{
+    set_io(c, &in, &out);
+    run_command(c->u.command[0], in, out);
+    while(command_status(c->u.command[0]) == 0)
+    {
+        run_command(c->u.command[1], 0, out);
+        run_command(c->u.command[0], in, out);
+    }
+    c->status = command_status(c->u.command[0]);
+//    printf("exited while with status %d\n", c->status);
 }
 
 /////////////////////////////////////////////////

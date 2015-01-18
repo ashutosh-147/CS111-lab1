@@ -809,8 +809,8 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
             case SS_COMMAND:
                 if(word_on_stack(*buf))
                 {
-                    if(eow == MORE_ARGS)
-                        error(1, 0, "%d: cannot have commands directly after 'fi'\n", current_line);
+                    //if(eow == MORE_ARGS)
+                    //    error(1, 0, "%d: cannot have commands directly after 'do'\n", current_line);
                     pop(*buf);
                 }
                 else
