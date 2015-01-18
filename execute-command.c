@@ -105,14 +105,14 @@ void set_io(command_t c, int *in, int *out)
 {
     if(c->input != NULL)
     {
-        in = open(c->input, O_RDONLY);
-        close(in);
+        *in = open(c->input, O_RDONLY);
+        close(*in);
     }
 
     if(c->output != NULL)
     {
-        out = open(c->output, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
-        close(out);
+        *out = open(c->output, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+        close(*out);
     }
 }
 
@@ -168,11 +168,6 @@ void run_simple_command(command_t c, int in, int out)
         int result = getchar();
         if(result != 10)
             error(1, 0, "foo, you type character(s) >:( no debug for you ... \n");
-        printf("%d\n", result);
-        //printf("\n");
-        int key;
-        //while((key = getchar()) != '\n' && key != EOF);
-        //while( != fgets(&key,1,1));
     }
     int pipefd[2];
     pipe(pipefd);
@@ -208,7 +203,7 @@ void run_simple_command(command_t c, int in, int out)
     }
     close(pipefd[1]);
     int result;
-    waitpid(pid, &result, NULL);
+    waitpid(pid, &result, 0);
     char buf[5];
     if(read(pipefd[0], buf, 3) != 0)
         error(1, 0, "cannot find command '%s' ... exiting\n", *(c->u.word));

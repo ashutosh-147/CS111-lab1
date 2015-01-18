@@ -84,7 +84,7 @@ main (int argc, char **argv)
     {
         printf("verbose set\n");
         FILE *verbose_stream = fopen (script_name, "r");
-        char **buf;
+        char **buf = NULL;
         size_t size = 0;
         while(getline(buf, &size, verbose_stream) != -1)
             printf("%s", *buf);
