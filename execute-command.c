@@ -137,11 +137,16 @@ void run_sequence_command(command_t c, int in, int out)
 
 void run_simple_command(command_t c, int in, int out)
 {
+    int pipefd[2];
+    pipe(pipefd);
+
     int pid = fork();
     if(pid < 0)
         error(1, 0, "fork error\n");
     if(pid == 0)
     {
+        close(pipefd[0]);
+        fcntl(pipefd[1], FD_CLOEXEC);
         if(c->input != NULL)
         {
             in = open(c->input, O_RDONLY);
@@ -161,9 +166,16 @@ void run_simple_command(command_t c, int in, int out)
             dup2(out, 1);
 
         execvp(*(c->u.word), c->u.word);
+        write(pipefd[1], "a", 1);
+        return;
     }
+    close(pipefd[1]);
     int result;
     waitpid(pid, &result, NULL);
+    char buf[5];
+    if(read(pipefd[0], buf, 3) != 0)
+        error(1, 0, "cannot find command '%s' ... exiting\n", *(c->u.word));
+    close(pipefd[0]);
     c->status = result;
     printf("exited simple with status %d\n", c->status);
 }
