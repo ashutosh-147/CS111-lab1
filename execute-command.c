@@ -208,7 +208,7 @@ void run_simple_command(command_t c, int in, int out)
     if(read(pipefd[0], buf, 3) != 0)
         error(1, 0, "cannot find command '%s' ... exiting\n", *(c->u.word));
     close(pipefd[0]);
-    c->status = result;
+    c->status = WEXITSTATUS(result);
 //    printf("exited simple with status %d\n", c->status);
 }
 
