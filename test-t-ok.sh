@@ -62,6 +62,15 @@ done
 
 # Another weird example: nobody would ever want to run this.
 a<b>c|d<e>f|g<h>i
+
+while a; do b;done;
+
+until 
+while a
+do b
+done
+do while c; do d; done
+done
 EOF
 
 cat >test.exp <<'EOF'
@@ -151,6 +160,26 @@ cat >test.exp <<'EOF'
     d<e>f \
   |
     g<h>i
+# 11
+  while
+    a
+  do
+    b
+  done
+# 12
+  until
+    while
+      a
+    do
+      b
+    done
+  do
+    while
+      c
+    do
+      d
+    done
+  done
 EOF
 
 ../profsh -t test.sh >test.out 2>test.err || exit

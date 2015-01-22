@@ -71,7 +71,9 @@ for bad in \
   '(a|b' \
   'a;b)' \
   '( (a)' \
-  'a>>>b'
+  'a>>>b' \
+  'while a; do b; done; | c' \
+  'if b; then (c | d; else e); fi'
 do
   echo "$bad" >test$n.sh || exit
   ../profsh -t test$n.sh >test$n.out 2>test$n.err && {
