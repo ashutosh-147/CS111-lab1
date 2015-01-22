@@ -449,6 +449,8 @@ command_t create_command_based_on_buf(char **buf, size_t *buf_size, size_t *max_
 
 }
 
+enum end_of_word eow_after_popping = MORE_ARGS; // some default value
+
 command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*get_next_byte) (void *), void *get_next_byte_argument, bool *eof, bool check_stack)
 {
     enum end_of_word end;
@@ -482,6 +484,7 @@ command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*g
             if((strcmp("done", *buf) == 0 || strcmp("fi", *buf) == 0) && end == MORE_ARGS)
                 error(1, 0, "%d: cannot have additional commands directly after '%s'\n", current_line, *buf);
             pop(*buf);
+            eow_after_popping = end;
             return NULL;
         }
     }
@@ -772,6 +775,11 @@ command_t create_if_command(char ** buf, size_t *buf_size, size_t *max_size, int
     }
     if(eow == CHAIN_COMMAND)
         return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com);
+    if(eow_after_popping == CHAIN_COMMAND)
+    {
+        eow_after_popping = MORE_ARGS;
+        return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com);
+    }
     return com;
 }
 
@@ -854,6 +862,11 @@ command_t create_while_or_until_command(char ** buf, size_t *buf_size, size_t *m
     }
     if(eow == CHAIN_COMMAND)
         return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com);
+    if(eow_after_popping == CHAIN_COMMAND)
+    {
+        eow_after_popping = MORE_ARGS;
+        return create_chain_command(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, com);
+    }
     return com;
 }
 
