@@ -52,11 +52,15 @@ void run_command(command_t c, int in, int out);
 
 
 int xtrace;
+bool command_failed = false;
 void
 execute_command (command_t c, int profiling, int _xtrace)
 {
+    command_failed = false;
     xtrace = _xtrace;
     run_command(c, 0, 1);
+    if(command_failed)
+        c->status = -1;
 }
 
 /////////////////////////////////////////////////
@@ -75,6 +79,9 @@ void run_while_command(command_t c, int in, int out);
 
 void run_command(command_t c, int in, int out)
 {
+    if(command_failed)  // do not execute anything else if the command failed
+        return;
+
     switch(c->type)
     {
         case IF_COMMAND:
@@ -206,8 +213,11 @@ void run_simple_command(command_t c, int in, int out)
     waitpid(pid, &result, 0);
     char buf[5];
     if(read(pipefd[0], buf, 3) != 0)
+    {
+        command_failed = true;
         //error(1, 0, "cannot find command '%s' ... exiting\n", *(c->u.word));
-        printf("cannot find command '%s' ... exiting\n", *(c->u.word));
+        fprintf(stderr, "'%s': command not found\n", *(c->u.word));
+    }
     close(pipefd[0]);
     c->status = WEXITSTATUS(result);
 //    printf("exited simple with status %d\n", c->status);
