@@ -172,9 +172,14 @@ void run_simple_command(command_t c, int in, int out)
 	    printf ("+ %s", *w);
 	    while (*++w)
 	        printf (" %s", *w);
-        int result = getchar();
-        if(result != 10)
-            error(1, 0, "foo, you type character(s) >:( no debug for you ... \n");
+        if(xtrace == 2)
+        {
+            int result = getchar();
+            if(result != 10)
+                error(1, 0, "foo, you typed character(s) >:( no debug for you ... \n");
+        }
+        else
+            printf("\n");
     }
     int pipefd[2];
     pipe(pipefd);

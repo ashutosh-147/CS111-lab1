@@ -29,7 +29,7 @@ static char const *script_name;
 static void
 usage (void)
 {
-  error (1, 0, "usage: %s [-p PROF-FILE | -t] SCRIPT-FILE", program_name);
+  error (1, 0, "usage: %s [-p PROF-FILE | -t | -v | -x | -s] SCRIPT-FILE", program_name);
 }
 
 static int
@@ -44,17 +44,20 @@ main (int argc, char **argv)
   int command_number = 1;
   bool print_tree = false;
   int verbose = 0;
-  int xtrace = 0;
+  bool xtrace = false;
+  bool step_through = false;
+  int debug_level = 0;
   char const *profile_name = 0;
   program_name = argv[0];
 
   for (;;)
-    switch (getopt (argc, argv, "p:tvx"))
+    switch (getopt (argc, argv, "p:tvxs"))
       {
       case 'p': profile_name = optarg; break;
       case 't': print_tree = true; break;
       case 'v': verbose = 1; break;
-      case 'x': xtrace = 1; break;
+      case 'x': xtrace = true; break;
+      case 's': step_through = true; break;
       default: usage (); break;
       case -1: goto options_exhausted;
       }
@@ -63,6 +66,12 @@ main (int argc, char **argv)
   // There must be exactly one file argument.
   if (optind != argc - 1)
     usage ();
+
+  if(xtrace)
+    debug_level = 1;
+  if(step_through)
+    debug_level = 2;
+      
 
   script_name = argv[optind];
   FILE *script_stream = fopen (script_name, "r");
@@ -75,25 +84,28 @@ main (int argc, char **argv)
     {
       profiling = prepare_profiling (profile_name);
       if (profiling < 0)
-	error (1, errno, "%s: cannot open", profile_name);
+	    error (1, errno, "%s: cannot open", profile_name);
     }
 
   command_t last_command = NULL;
   command_t command;
     if(verbose)
     {
-        printf("verbose set\n");
         FILE *verbose_stream = fopen (script_name, "r");
-        char **buf = NULL;
-        size_t size = 0;
-        while(getline(buf, &size, verbose_stream) != -1)
-            printf("%s", *buf);
+        //char **buf = NULL;
+        //size_t size = 0;
+        //while(getline(buf, &size, verbose_stream) != -1)
+        //    printf("%s", *buf);
+        char c;
+        while((c = getc(verbose_stream)) != -1)
+            printf("%c", c);
+        fclose(verbose_stream);
     }
-    if(xtrace)
+    if(debug_level == 2)
     {
       printf("Use ENTER to step through program line by line. Don't be pressing any other characters now >:(");
       getchar();
-        }
+    }
   while ((command = read_command_stream (command_stream)))
     {
       if (print_tree)
@@ -104,7 +116,7 @@ main (int argc, char **argv)
       else
 	{
 	  last_command = command;
-	  execute_command (command, profiling, xtrace);
+	  execute_command (command, profiling, debug_level);
 	}
     }
 
