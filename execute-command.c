@@ -199,14 +199,15 @@ void run_simple_command(command_t c, int in, int out)
 
         execvp(*(c->u.word), c->u.word);
         write(pipefd[1], "a", 1);
-        return;
+        exit(-1);
     }
     close(pipefd[1]);
     int result;
     waitpid(pid, &result, 0);
     char buf[5];
     if(read(pipefd[0], buf, 3) != 0)
-        error(1, 0, "cannot find command '%s' ... exiting\n", *(c->u.word));
+        //error(1, 0, "cannot find command '%s' ... exiting\n", *(c->u.word));
+        printf("cannot find command '%s' ... exiting\n", *(c->u.word));
     close(pipefd[0]);
     c->status = WEXITSTATUS(result);
 //    printf("exited simple with status %d\n", c->status);
