@@ -724,14 +724,17 @@ command_t create_if_command(char ** buf, size_t *buf_size, size_t *max_size, int
             case END_OF_FILE:
                 *eof = true;
             case CHAIN_COMMAND:
-                error(1, 0, "%d: cannot define chain command after 'else' ... exiting\n", current_line);
-                return NULL;
             case END_OF_LINE:
             case MORE_ARGS:
             case SS_COMMAND:
                 if(word_on_stack(*buf))
                 {
                     pop(*buf);
+                    if(peek() == FI && eow == CHAIN_COMMAND)
+                    {
+                        error(1, 0, "%d: cannot define chain command after 'else' ... exiting\n", current_line);
+                        return NULL;
+                    }
                 }
                 else
                 {

@@ -113,13 +113,13 @@ void set_io(command_t c, int *in, int *out)
     if(c->input != NULL)
     {
         *in = open(c->input, O_RDONLY);
-        close(*in);
+//        close(*in);
     }
 
     if(c->output != NULL)
     {
         *out = open(c->output, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
-        close(*out);
+//        close(*out);
     }
 }
 
