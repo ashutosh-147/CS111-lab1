@@ -1,7 +1,14 @@
 Ashutosh Shiledar, Nicholas Chung
 
-Lab 1a
+Lab 1a :
 Our current implementation of the shell produces warnings regarding the 'prepare_profiling' and 'execute_command' functions in the 'execute_command.c' file because those functions correspond to lab 1b and 1c.
 Beyond warnings (which we suppress by voiding the option 'Werror' in Makefile), there are no known limitations.
 
+Lab 1b :
+Currently, we get two warnings during compilation. The first is for an unused parameter in prepare_profiling, a function that will be implemented in part c. The second is for an unused parameter
+in execute_command, which will be later used in the implementation of part c.
 
+We started the design problem for this project which includes implementing the -v (verbose) and -x (xtrace) flags. Using the -v simply prints out the contents of the script before it executes any
+commands. The -x option prints out simple commands (preceded by a '+') before it executes it. We also added a -s option that allows you to 'step' through the code, similar to gdb and other
+debuggers. When this option is selected, it prints out the command, just like in the -x option, but then waits for the user to press the enter key to continue with the execution. This allows the user
+to see what is going to get executed before the command is run.
