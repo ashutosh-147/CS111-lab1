@@ -79,8 +79,8 @@ void run_while_command(command_t c, int in, int out);
 
 void run_command(command_t c, int in, int out)
 {
-    if(command_failed)  // do not execute anything else if the command failed
-        return;
+    //if(command_failed && c->type != SEQUENCE_COMMAND)  // do not execute anything else if the command failed
+    //    return;
 
     switch(c->type)
     {
@@ -158,6 +158,8 @@ void run_pipe_command(command_t c, int in, int out)
 void run_sequence_command(command_t c, int in, int out)
 {
     run_command(c->u.command[0], in, 1);
+
+    command_failed = false;
     run_command(c->u.command[1], 0, out);
 
     c->status = command_status(c->u.command[1]);
@@ -166,6 +168,8 @@ void run_sequence_command(command_t c, int in, int out)
 
 void run_simple_command(command_t c, int in, int out)
 {
+    if(command_failed)
+        return;
     if(xtrace)
     {
         char **w = c->u.word;
@@ -221,7 +225,7 @@ void run_simple_command(command_t c, int in, int out)
     {
         command_failed = true;
         //error(1, 0, "cannot find command '%s' ... exiting\n", *(c->u.word));
-        fprintf(stderr, "'%s': command not found\n", *(c->u.word));
+        fprintf(stderr, "%d: '%s' command not found\n", pid, *(c->u.word));
     }
     close(pipefd[0]);
     c->status = WEXITSTATUS(result);
