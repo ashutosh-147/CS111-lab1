@@ -65,43 +65,9 @@ execute_command (command_t c, int profiling, int _xtrace)
     command_failed = false;
     xtrace = _xtrace;
 
-    // move both of these comment blocks to main
-/*    struct timespec t1;
-    if(profiling != -1)
-    {
-        clock_gettime(CLOCK_REALTIME, &t1);
-    } */
-
     run_command(c, 0, 1);
     if(command_failed)
         c->status = -1;
-
-/*    if(profiling != -1)
-    {
-        const long long nsec_to_sec = 1000000000;
-        const long long usec_to_sec = 1000000;
-    
-        struct timespec abs_time;
-        clock_gettime(CLOCK_REALTIME, &abs_time);
-
-        // record absolute time
-        double end_time = (double) abs_time.tv_sec + (double) abs_time.tv_nsec / nsec_to_sec;
-        dprintf(proffile, "%.2f ", end_time);
-
-        // record total execution time
-        double exec_time = (double) (abs_time.tv_sec - t1.tv_sec) + (((double) (abs_time.tv_nsec - t1.tv_nsec)) / nsec_to_sec);
-        dprintf(proffile, "%.3f ", exec_time);
-
-        struct rusage usage;
-        getrusage(RUSAGE_CHILDREN, &usage);
-
-        // record user cpu time
-        dprintf(proffile, "%.3f ", ((double) usage.ru_utime.tv_sec + (double) usage.ru_utime.tv_usec / usec_to_sec));
-        // record system cpu time
-        dprintf(proffile, "%.3f ", ((double) usage.ru_stime.tv_sec + (double) usage.ru_stime.tv_usec / usec_to_sec));
-
-        dprintf(proffile, "[%d]\n", getpid());
-    } */
 }
 
 /////////////////////////////////////////////////
@@ -234,7 +200,6 @@ void run_simple_command(command_t c, int in, int out)
 
     struct timespec t1;
     clock_gettime(CLOCK_REALTIME, &t1);
-    printf("t1: %.2f %.2f\n", (double) t1.tv_sec, (double) t1.tv_nsec);
 
     int pid = fork();
     if(pid < 0)
@@ -261,21 +226,16 @@ void run_simple_command(command_t c, int in, int out)
         else
             dup2(out, 1);
 
-        execvp(*(c->u.word), c->u.word);
+        if(strcmp("exec", *(c->u.word)) == 0)
+            execvp(*(c->u.word+1), c->u.word+1);
+        else
+            execvp(*(c->u.word), c->u.word);
         write(pipefd[1], "a", 1);
         exit(-1);
     }
     close(pipefd[1]);
     int result;
     waitpid(pid, &result, 0);
-    
-    /*
-    struct timespec abs_time, res_time;
-    clock_gettime(CLOCK_REALTIME, &abs_time);
-    dprintf(proffile, "%.2f ", (double) abs_time.tv_sec);
-    clock_getres(CLOCK_REALTIME, &res_time);
-    printf("%.2f %.2f\n", res_time.tv_sec, res_time.tv_nsec);
-    */
 
     const long long nsec_to_sec = 1000000000;
     const long long usec_to_sec = 1000000;
@@ -307,6 +267,10 @@ void run_simple_command(command_t c, int in, int out)
         command_failed = true;
         //error(1, 0, "cannot find command '%s' ... exiting\n", *(c->u.word));
         fprintf(stderr, "%d: '%s' command not found\n", pid, *(c->u.word));
+        if(proffile != -1)
+        {
+            dprintf(proffile, "[%d]\n", pid);
+        }
     }
     else if(proffile != -1)
     {
