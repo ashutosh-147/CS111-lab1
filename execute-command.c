@@ -20,6 +20,9 @@
 
 #include <error.h>
 
+#include <sys/resource.h>
+//#include <sys/time.h>
+#include <time.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -37,8 +40,9 @@ prepare_profiling (char const *name)
   /* FIXME: Replace this with your implementation.  You may need to
      add auxiliary functions and otherwise modify the source code.
      You can also use external functions defined in the GNU C Library.  */
-  error (0, 0, "warning: profiling not yet implemented");
-  return -1;
+  //error (0, 0, "warning: profiling not yet implemented");
+  //return -1;
+    return open(name, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
 }
 
 
@@ -53,14 +57,51 @@ void run_command(command_t c, int in, int out);
 
 int xtrace;
 bool command_failed = false;
+int proffile;
 void
 execute_command (command_t c, int profiling, int _xtrace)
 {
+    proffile = profiling;
     command_failed = false;
     xtrace = _xtrace;
+
+    // move both of these comment blocks to main
+/*    struct timespec t1;
+    if(profiling != -1)
+    {
+        clock_gettime(CLOCK_REALTIME, &t1);
+    } */
+
     run_command(c, 0, 1);
     if(command_failed)
         c->status = -1;
+
+/*    if(profiling != -1)
+    {
+        const long long nsec_to_sec = 1000000000;
+        const long long usec_to_sec = 1000000;
+    
+        struct timespec abs_time;
+        clock_gettime(CLOCK_REALTIME, &abs_time);
+
+        // record absolute time
+        double end_time = (double) abs_time.tv_sec + (double) abs_time.tv_nsec / nsec_to_sec;
+        dprintf(proffile, "%.2f ", end_time);
+
+        // record total execution time
+        double exec_time = (double) (abs_time.tv_sec - t1.tv_sec) + (((double) (abs_time.tv_nsec - t1.tv_nsec)) / nsec_to_sec);
+        dprintf(proffile, "%.3f ", exec_time);
+
+        struct rusage usage;
+        getrusage(RUSAGE_CHILDREN, &usage);
+
+        // record user cpu time
+        dprintf(proffile, "%.3f ", ((double) usage.ru_utime.tv_sec + (double) usage.ru_utime.tv_usec / usec_to_sec));
+        // record system cpu time
+        dprintf(proffile, "%.3f ", ((double) usage.ru_stime.tv_sec + (double) usage.ru_stime.tv_usec / usec_to_sec));
+
+        dprintf(proffile, "[%d]\n", getpid());
+    } */
 }
 
 /////////////////////////////////////////////////
@@ -166,6 +207,9 @@ void run_sequence_command(command_t c, int in, int out)
 //    printf("exited sequence with status %d\n", c->status);
 }
 
+double total_user_time = 0;
+double total_sys_time = 0;
+
 void run_simple_command(command_t c, int in, int out)
 {
     if(command_failed)
@@ -187,6 +231,10 @@ void run_simple_command(command_t c, int in, int out)
     }
     int pipefd[2];
     pipe(pipefd);
+
+    struct timespec t1;
+    clock_gettime(CLOCK_REALTIME, &t1);
+    printf("t1: %.2f %.2f\n", (double) t1.tv_sec, (double) t1.tv_nsec);
 
     int pid = fork();
     if(pid < 0)
@@ -220,12 +268,53 @@ void run_simple_command(command_t c, int in, int out)
     close(pipefd[1]);
     int result;
     waitpid(pid, &result, 0);
+    
+    /*
+    struct timespec abs_time, res_time;
+    clock_gettime(CLOCK_REALTIME, &abs_time);
+    dprintf(proffile, "%.2f ", (double) abs_time.tv_sec);
+    clock_getres(CLOCK_REALTIME, &res_time);
+    printf("%.2f %.2f\n", res_time.tv_sec, res_time.tv_nsec);
+    */
+
+    const long long nsec_to_sec = 1000000000;
+    const long long usec_to_sec = 1000000;
+    
+    struct timespec abs_time;
+    clock_gettime(CLOCK_REALTIME, &abs_time);
+
+    // record absolute time
+    double end_time = (double) abs_time.tv_sec + (double) abs_time.tv_nsec / nsec_to_sec;
+    dprintf(proffile, "%.2f ", end_time);
+
+    // record total execution time
+    double exec_time = (double) (abs_time.tv_sec - t1.tv_sec) + (((double) (abs_time.tv_nsec - t1.tv_nsec)) / nsec_to_sec);
+    dprintf(proffile, "%.3f ", exec_time);
+
+    struct rusage usage;
+    getrusage(RUSAGE_CHILDREN, &usage);
+
+    // record user cpu time
+    dprintf(proffile, "%.3f ", ((double) usage.ru_utime.tv_sec + (double) usage.ru_utime.tv_usec / usec_to_sec) - total_user_time);
+    total_user_time = (double) usage.ru_utime.tv_sec + (double) usage.ru_utime.tv_usec / usec_to_sec;
+    // record system cpu time
+    dprintf(proffile, "%.3f ", ((double) usage.ru_stime.tv_sec + (double) usage.ru_stime.tv_usec / usec_to_sec) - total_sys_time);
+    total_sys_time = (double) usage.ru_stime.tv_sec + (double) usage.ru_stime.tv_usec / usec_to_sec;
+
     char buf[5];
     if(read(pipefd[0], buf, 3) != 0)
     {
         command_failed = true;
         //error(1, 0, "cannot find command '%s' ... exiting\n", *(c->u.word));
         fprintf(stderr, "%d: '%s' command not found\n", pid, *(c->u.word));
+    }
+    else if(proffile != -1)
+    {
+        char **w = c->u.word;
+        dprintf(proffile, "%s", *w);
+        while(*++w)
+            dprintf(proffile, " %s", *w);
+        dprintf(proffile, "\n");
     }
     close(pipefd[0]);
     c->status = WEXITSTATUS(result);
