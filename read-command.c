@@ -983,10 +983,10 @@ make_command_stream (int (*get_next_byte) (void *),
   while(1)
   {
     c = create_command(&buf, &buf_size, &max_size, get_next_byte, get_next_byte_argument, &eof, false);
-    if(eof)
-        break;
     if(c != NULL)
         add_command(stream, c);
+    if(eof)
+        break;
   }
     if(!stack_is_empty())
         error(1, 0, "%d: items still on stack - syntax error detected ... exiting\n", current_line);
