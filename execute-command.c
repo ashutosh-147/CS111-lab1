@@ -21,7 +21,6 @@
 #include <error.h>
 
 #include <sys/resource.h>
-//#include <sys/time.h>
 #include <time.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -30,6 +29,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <stdbool.h>
+#include <string.h>
 
 /* FIXME: You may need to add #include directives, macro definitions,
    static function definitions, etc.  */
