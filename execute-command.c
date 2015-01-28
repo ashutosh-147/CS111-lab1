@@ -123,12 +123,16 @@ void set_io(command_t c, int *in, int *out)
     if(c->input != NULL)
     {
         *in = open(c->input, O_RDONLY);
+        if(*in < 0)
+            command_failed = true;
 //        close(*in);
     }
 
     if(c->output != NULL)
     {
         *out = open(c->output, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+        if(*out < 0)
+            command_failed = true;
 //        close(*out);
     }
 }
@@ -229,10 +233,13 @@ void run_simple_command(command_t c, int in, int out)
         else
             dup2(out, 1);
 
-        if(strcmp("exec", *(c->u.word)) == 0)
-            execvp(*(c->u.word+1), c->u.word+1);
-        else
-            execvp(*(c->u.word), c->u.word);
+        if(out >= 0 && in >= 0)
+        {
+            if(strcmp("exec", *(c->u.word)) == 0)
+                execvp(*(c->u.word+1), c->u.word+1);
+            else
+                execvp(*(c->u.word), c->u.word);
+        }
         write(pipefd[1], "a", 1);
         exit(-1);
     }
