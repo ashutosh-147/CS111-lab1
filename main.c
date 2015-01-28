@@ -83,6 +83,7 @@ main (int argc, char **argv)
     error (1, errno, "%s: cannot open", script_name);
   command_stream_t command_stream =
     make_command_stream (get_next_byte, script_stream);
+  int prof_failed = 0;
   int profiling = -1;
   struct timespec t1;
   if (profile_name)
@@ -122,12 +123,14 @@ main (int argc, char **argv)
       else
 	{
 	  last_command = command;
-	  execute_command (command, profiling, debug_level);
+	  prof_failed += execute_command (command, profiling, debug_level);
 	}
     }
 
     if (profile_name)
     {
+        if(prof_failed != 0)
+          return -1;
         const long long nsec_to_sec = 1000000000;
         const long long usec_to_sec = 1000000;
     

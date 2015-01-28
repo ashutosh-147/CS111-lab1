@@ -58,7 +58,8 @@ void run_command(command_t c, int in, int out);
 int xtrace;
 bool command_failed = false;
 int proffile;
-void
+int prof_failed = 0;
+int
 execute_command (command_t c, int profiling, int _xtrace)
 {
     proffile = profiling;
@@ -68,6 +69,8 @@ execute_command (command_t c, int profiling, int _xtrace)
     run_command(c, 0, 1);
     if(command_failed)
         c->status = -1;
+
+    return prof_failed >= 0 ? 0 : -1;
 }
 
 /////////////////////////////////////////////////
@@ -275,7 +278,7 @@ void run_simple_command(command_t c, int in, int out)
         if(proffile != -1)
         {
             prof_buf_index += snprintf(prof_buf + prof_buf_index, prof_buf_size - prof_buf_index, "[%d]\n", pid);
-            dprintf(proffile, "%s\n", prof_buf);
+            prof_failed = dprintf(proffile, "%s\n", prof_buf);
         }
     }
     else if(proffile != -1)
@@ -284,7 +287,7 @@ void run_simple_command(command_t c, int in, int out)
         prof_buf_index += snprintf(prof_buf + prof_buf_index, prof_buf_size - prof_buf_index, "%s", *w);
         while(*++w && prof_buf_index < prof_buf_size)
             prof_buf_index += snprintf(prof_buf + prof_buf_index, prof_buf_size - prof_buf_index, " %s", *w);
-        dprintf(proffile, "%s\n", prof_buf);
+        prof_failed = dprintf(proffile, "%s\n", prof_buf);
     }
     close(pipefd[0]);
     c->status = WEXITSTATUS(result);
