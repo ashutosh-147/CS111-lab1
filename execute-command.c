@@ -205,8 +205,8 @@ void run_simple_command(command_t c, int in, int out)
     int pipefd[2];
     pipe(pipefd);
 
-    struct timespec t1;
-    clock_gettime(CLOCK_REALTIME, &t1);
+    struct timespec t1, t2;
+    clock_gettime(CLOCK_MONOTONIC, &t1);
 
     int pid = fork();
     if(pid < 0)
@@ -256,6 +256,7 @@ void run_simple_command(command_t c, int in, int out)
     
     struct timespec abs_time;
     clock_gettime(CLOCK_REALTIME, &abs_time);
+    clock_gettime(CLOCK_MONOTONIC, &t2);
 
     // record absolute time
     double end_time = (double) abs_time.tv_sec + (double) abs_time.tv_nsec / nsec_to_sec;
@@ -263,7 +264,7 @@ void run_simple_command(command_t c, int in, int out)
     prof_buf_index = snprintf(prof_buf, prof_buf_size, "%.2f ", end_time);
 
     // record total execution time
-    double exec_time = (double) (abs_time.tv_sec - t1.tv_sec) + (((double) (abs_time.tv_nsec - t1.tv_nsec)) / nsec_to_sec);
+    double exec_time = (double) (t2.tv_sec - t1.tv_sec) + (((double) (t2.tv_nsec - t1.tv_nsec)) / nsec_to_sec);
     prof_buf_index += snprintf(prof_buf + prof_buf_index, prof_buf_size - prof_buf_index, "%.3f ", exec_time);
 
     struct rusage usage;
@@ -284,7 +285,7 @@ void run_simple_command(command_t c, int in, int out)
         fprintf(stderr, "%d: '%s' command not found\n", pid, *(c->u.word));
         if(proffile != -1)
         {
-            prof_buf_index += snprintf(prof_buf + prof_buf_index, prof_buf_size - prof_buf_index, "[%d]\n", pid);
+            prof_buf_index += snprintf(prof_buf + prof_buf_index, prof_buf_size - prof_buf_index, "[%d]", pid);
             prof_failed = dprintf(proffile, "%s\n", prof_buf);
         }
     }
