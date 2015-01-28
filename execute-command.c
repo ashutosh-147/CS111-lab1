@@ -42,7 +42,7 @@ prepare_profiling (char const *name)
      You can also use external functions defined in the GNU C Library.  */
   //error (0, 0, "warning: profiling not yet implemented");
   //return -1;
-    return open(name, O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+    return open(name, O_WRONLY | O_APPEND | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
 }
 
 
@@ -237,6 +237,10 @@ void run_simple_command(command_t c, int in, int out)
     int result;
     waitpid(pid, &result, 0);
 
+    const int prof_buf_size = 1024;
+    int prof_buf_index = 0;
+    char prof_buf[prof_buf_size];
+
     const long long nsec_to_sec = 1000000000;
     const long long usec_to_sec = 1000000;
     
@@ -245,20 +249,21 @@ void run_simple_command(command_t c, int in, int out)
 
     // record absolute time
     double end_time = (double) abs_time.tv_sec + (double) abs_time.tv_nsec / nsec_to_sec;
-    dprintf(proffile, "%.2f ", end_time);
+    //dprintf(proffile, "%.2f ", end_time);
+    prof_buf_index = snprintf(prof_buf, prof_buf_size, "%.2f ", end_time);
 
     // record total execution time
     double exec_time = (double) (abs_time.tv_sec - t1.tv_sec) + (((double) (abs_time.tv_nsec - t1.tv_nsec)) / nsec_to_sec);
-    dprintf(proffile, "%.3f ", exec_time);
+    prof_buf_index += snprintf(prof_buf + prof_buf_index, prof_buf_size - prof_buf_index, "%.3f ", exec_time);
 
     struct rusage usage;
     getrusage(RUSAGE_CHILDREN, &usage);
 
     // record user cpu time
-    dprintf(proffile, "%.3f ", ((double) usage.ru_utime.tv_sec + (double) usage.ru_utime.tv_usec / usec_to_sec) - total_user_time);
+    prof_buf_index += snprintf(prof_buf + prof_buf_index, prof_buf_size - prof_buf_index, "%.3f ", ((double) usage.ru_utime.tv_sec + (double) usage.ru_utime.tv_usec / usec_to_sec) - total_user_time);
     total_user_time = (double) usage.ru_utime.tv_sec + (double) usage.ru_utime.tv_usec / usec_to_sec;
     // record system cpu time
-    dprintf(proffile, "%.3f ", ((double) usage.ru_stime.tv_sec + (double) usage.ru_stime.tv_usec / usec_to_sec) - total_sys_time);
+    prof_buf_index += snprintf(prof_buf + prof_buf_index, prof_buf_size - prof_buf_index, "%.3f ", ((double) usage.ru_stime.tv_sec + (double) usage.ru_stime.tv_usec / usec_to_sec) - total_sys_time);
     total_sys_time = (double) usage.ru_stime.tv_sec + (double) usage.ru_stime.tv_usec / usec_to_sec;
 
     char buf[5];
@@ -269,16 +274,17 @@ void run_simple_command(command_t c, int in, int out)
         fprintf(stderr, "%d: '%s' command not found\n", pid, *(c->u.word));
         if(proffile != -1)
         {
-            dprintf(proffile, "[%d]\n", pid);
+            prof_buf_index += snprintf(prof_buf + prof_buf_index, prof_buf_size - prof_buf_index, "[%d]\n", pid);
+            dprintf(proffile, "%s\n", prof_buf);
         }
     }
     else if(proffile != -1)
     {
         char **w = c->u.word;
-        dprintf(proffile, "%s", *w);
-        while(*++w)
-            dprintf(proffile, " %s", *w);
-        dprintf(proffile, "\n");
+        prof_buf_index += snprintf(prof_buf + prof_buf_index, prof_buf_size - prof_buf_index, "%s", *w);
+        while(*++w && prof_buf_index < prof_buf_size)
+            prof_buf_index += snprintf(prof_buf + prof_buf_index, prof_buf_size - prof_buf_index, " %s", *w);
+        dprintf(proffile, "%s\n", prof_buf);
     }
     close(pipefd[0]);
     c->status = WEXITSTATUS(result);
