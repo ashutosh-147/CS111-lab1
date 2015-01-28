@@ -1,3 +1,5 @@
+TODO: Lab1c 2+ test cases; tests in general
+
 Ashutosh Shiledar, Nicholas Chung
 
 Lab 1a :
@@ -17,8 +19,9 @@ Lab 1c:
 
 Beyond the constraints as required in the specs, there are no known limitations. 
 
+For the first column, we used CLOCK_REALTIME as required by the specifications. For the execution time, we used CLOCK_MONOTONIC to prevent commands with appropriate priveleges to be able to alter the value of the execution time. The CPU times are calculated using getrusage(RUSAGE_CHILDREN,...) because all execvp commands are run in child processes.
 
 The first column does not have to be in non-decreasing order because CLOCK_REALTIME can be changed with appropriate priveleges, including the start and end of daylight savings. For example, at the end of daylight savings, the clock should jump from 1:59am to 1:00am.
 The sum of the third (user CPU time) and fourth (system CPU time) columns can be greater than the second (execution time) column when multi-threading. When multi-threading, each process can use multiple threads to accelerate performance. However, the CPU time will be the sum of the individual thread times, whereas the execution time of the process will decrease. 
-Only the second column can be negative because the execution time is calculated by taking the difference between start and end time of process. Since CLOCK_REALTIME clock can be set to an earlier date, the difference would become negative.
+None of the columns should be negative. The second column is calculated from the difference of the end and start time of the process; but, we use CLOCK_MONOTONIC, so the clock times must always be non-negative. The third and fourth column times are gathered from getrusage(RUSAGE_CHILDREN, struct rusage * usage) and will always be non-negative.
 We did not test our shell for interleaving because interleaving occurs only when the shell is parallelized. However, this lab does not require parallelism (design problem). 
