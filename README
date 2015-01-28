@@ -12,3 +12,13 @@ We started the design problem for this project which includes implementing the -
 commands. The -x option prints out simple commands (preceded by a '+') before it executes it. We also added a -s option that allows you to 'step' through the code, similar to gdb and other
 debuggers. When this option is selected, it prints out the command, just like in the -x option, but then waits for the user to press the enter key to continue with the execution. This allows the user
 to see what is going to get executed before the command is run.
+
+Lab 1c:
+
+Beyond the constraints as required in the specs, there are no known limitations. 
+
+
+The first column does not have to be in non-decreasing order because CLOCK_REALTIME can be changed with appropriate priveleges, including the start and end of daylight savings. For example, at the end of daylight savings, the clock should jump from 1:59am to 1:00am.
+The sum of the third (user CPU time) and fourth (system CPU time) columns can be greater than the second (execution time) column when multi-threading. When multi-threading, each process can use multiple threads to accelerate performance. However, the CPU time will be the sum of the individual thread times, whereas the execution time of the process will decrease. 
+Only the second column can be negative because the execution time is calculated by taking the difference between start and end time of process. Since CLOCK_REALTIME clock can be set to an earlier date, the difference would become negative.
+We did not test our shell for interleaving because interleaving occurs only when the shell is parallelized. However, this lab does not require parallelism (design problem). 
