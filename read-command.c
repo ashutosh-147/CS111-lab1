@@ -461,21 +461,18 @@ command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*g
         {
             case END_OF_FILE:
                 *eof = true;
-                return NULL;
+                //return NULL;
             case SS_COMMAND:
             case END_OF_LINE:
             case CHAIN_COMMAND:
             case MORE_ARGS:
                 break;
-        }        
+        }
+        if(end == END_OF_FILE)
+            break;
     }
     while(isEmptyString(*buf));
 
-    if(end == END_OF_FILE)
-    {
-        *eof = true;
-        return NULL;
-    }
     if(check_stack)
     {
         if(word_on_stack(*buf))
@@ -486,6 +483,12 @@ command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*g
             eow_after_popping = end;
             return NULL;
         }
+    }
+
+    if(end == END_OF_FILE)
+    {
+        *eof = true;
+        return NULL;
     }
 
     return create_command_based_on_buf(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, end);
