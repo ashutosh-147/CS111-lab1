@@ -103,10 +103,15 @@ main (int argc, char **argv)
         //size_t size = 0;
         //while(getline(buf, &size, verbose_stream) != -1)
         //    printf("%s", *buf);
-        char c;
+        char c, lastChar;
         while((c = getc(verbose_stream)) != -1)
+        {
             printf("%c", c);
+            lastChar == c;
+        }
         fclose(verbose_stream);
+        if(lastChar != '\n');
+        printf("\n");
     }
     if(debug_level == 2)
     {
