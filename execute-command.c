@@ -182,6 +182,8 @@ void run_sequence_command(command_t c, int in, int out)
 
 double total_user_time = 0;
 double total_sys_time = 0;
+const long long nsec_to_sec = 1000000000;
+const long long usec_to_sec = 1000000;
 
 void run_simple_command(command_t c, int in, int out)
 {
@@ -250,9 +252,6 @@ void run_simple_command(command_t c, int in, int out)
     const int prof_buf_size = 1024;
     int prof_buf_index = 0;
     char prof_buf[prof_buf_size];
-
-    const long long nsec_to_sec = 1000000000;
-    const long long usec_to_sec = 1000000;
     
     struct timespec abs_time;
     clock_gettime(CLOCK_REALTIME, &abs_time);
@@ -303,6 +302,62 @@ void run_simple_command(command_t c, int in, int out)
 }
 
 void run_subshell_command(command_t c, int in, int out)
+{
+    set_io(c, &in, &out);
+    int pid = fork();
+    if(pid < 0)
+        error(1, 0, "fork error\n");
+    else if(pid == 0)
+    {
+        struct timespec t1, t2;
+        if(proffile != -1)
+        {
+            total_user_time = 0;
+            total_sys_time = 0;
+            clock_gettime(CLOCK_MONOTONIC, &t1);
+        }
+
+        run_command(c->u.command[0], in, out);
+
+        if(proffile != -1)
+        {        
+            struct timespec abs_time;
+            clock_gettime(CLOCK_REALTIME, &abs_time);
+
+            // record absolute time
+            double end_time = (double) abs_time.tv_sec + (double) abs_time.tv_nsec / nsec_to_sec;
+            dprintf(proffile, "%.2f ", end_time);
+
+            // record total execution time
+            clock_gettime(CLOCK_MONOTONIC, &t2);
+            double exec_time = (double) (t2.tv_sec - t1.tv_sec) + (((double) (t2.tv_nsec - t1.tv_nsec)) / nsec_to_sec);
+            dprintf(proffile, "%.3f ", exec_time);
+
+            struct rusage usage;
+            getrusage(RUSAGE_CHILDREN, &usage);
+
+            // record user cpu time
+            dprintf(proffile, "%.3f ", ((double) usage.ru_utime.tv_sec + (double) usage.ru_utime.tv_usec / usec_to_sec));
+            // record system cpu time
+            dprintf(proffile, "%.3f ", ((double) usage.ru_stime.tv_sec + (double) usage.ru_stime.tv_usec / usec_to_sec));
+
+            dprintf(proffile, "[%d]\n", getpid());
+        }
+
+        exit(command_status(c->u.command[0]));
+    }
+    int result;
+    waitpid(pid, &result, 0);
+
+    struct rusage usage;
+    getrusage(RUSAGE_CHILDREN, &usage);
+    total_user_time = (double) usage.ru_utime.tv_sec + (double) usage.ru_utime.tv_usec / usec_to_sec;
+    total_sys_time = (double) usage.ru_stime.tv_sec + (double) usage.ru_stime.tv_usec / usec_to_sec;
+    c->status = result;
+//    printf("exited subshell with status %d\n", c->status);
+}
+
+void run_subshell_command_old(command_t c, int in, int out)
 {
     set_io(c, &in, &out);
     run_command(c->u.command[0], in, out);
