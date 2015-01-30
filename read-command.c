@@ -485,12 +485,6 @@ command_t create_command(char **buf, size_t *buf_size, size_t *max_size, int (*g
         }
     }
 
-    if(end == END_OF_FILE)
-    {
-        *eof = true;
-        return NULL;
-    }
-
     return create_command_based_on_buf(buf, buf_size, max_size, get_next_byte, get_next_byte_argument, eof, end);
 }
 
