@@ -1,4 +1,7 @@
-TODO: Lab1c 2+ test cases; tests in general
+TODO: Lab1c
+Fix subshell so it forks and records its own time
+2+ test cases
+tests in general
 
 Ashutosh Shiledar, Nicholas Chung
 
