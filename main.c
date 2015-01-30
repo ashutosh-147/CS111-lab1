@@ -107,11 +107,11 @@ main (int argc, char **argv)
         while((c = getc(verbose_stream)) != -1)
         {
             printf("%c", c);
-            lastChar == c;
+            lastChar = c;
         }
         fclose(verbose_stream);
-        if(lastChar != '\n');
-        printf("\n");
+        if(lastChar != '\n')
+          printf("\n");
     }
     if(debug_level == 2)
     {
