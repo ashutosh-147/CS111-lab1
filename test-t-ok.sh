@@ -71,6 +71,9 @@ do b
 done
 do while c; do d; done
 done
+
+cat < yoloswag | echo hello
+(ls | cat)
 EOF
 
 cat >test.exp <<'EOF'
@@ -180,6 +183,16 @@ cat >test.exp <<'EOF'
       d
     done
   done
+# 13
+    cat<yoloswag \
+  |
+    echo hello
+# 14
+  (
+     ls \
+   |
+     cat
+  )
 EOF
 
 ../profsh -t test.sh >test.out 2>test.err || exit
