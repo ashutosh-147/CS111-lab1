@@ -73,7 +73,9 @@ for bad in \
   '( (a)' \
   'a>>>b' \
   'while a; do b; done; | c' \
-  'if b; then (c | d; else e); fi'
+  'if b; then (c | d; else e); fi' \
+  'a<b>c<d' \
+  'until b;c;; do d; done'
 do
   echo "$bad" >test$n.sh || exit
   ../profsh -t test$n.sh >test$n.out 2>test$n.err && {
