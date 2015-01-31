@@ -612,11 +612,16 @@ command_t add_io_redirection(char **buf, size_t *buf_size, size_t *max_size, int
 
     switch(eow)
     {
-        case END_OF_FILE:
-            *eof = true;
         case SS_COMMAND:
             error(1, 0, "%d: cannot redirect I/O into or out of subshell ... exiting\n", current_line);
+        case END_OF_FILE:
+            *eof = true;
         case END_OF_LINE:
+            if(isEmptyString(*buf))
+            {
+                error(1, 0, "%d: must specify file after io redirection ... exiting\n", current_line);
+                return first_command;
+            }
         case CHAIN_COMMAND:
             if(isEmptyString(*buf))
             {
