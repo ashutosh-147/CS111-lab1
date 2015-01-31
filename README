@@ -3,7 +3,8 @@ Fix subshell so it forks and records its own time
 2+ test cases
 tests in general
 
-Ashutosh Shiledar, Nicholas Chung
+Ashutosh Shiledar (304142693)
+Nicholas Chung (404252775)
 
 Lab 1a :
 Our current implementation of the shell produces warnings regarding the 'prepare_profiling' and 'execute_command' functions in the 'execute_command.c' file because those functions correspond to lab 1b and 1c.
