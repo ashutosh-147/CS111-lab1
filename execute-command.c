@@ -162,6 +162,7 @@ void run_pipe_command(command_t c, int in, int out)
     run_command(c->u.command[0], in, pipefd[1]);
     close(pipefd[1]);
     
+    command_failed = false;
     run_command(c->u.command[1], pipefd[0], out);
     close(pipefd[0]);
 
@@ -260,20 +261,20 @@ void run_simple_command(command_t c, int in, int out)
     // record absolute time
     double end_time = (double) abs_time.tv_sec + (double) abs_time.tv_nsec / nsec_to_sec;
     //dprintf(proffile, "%.2f ", end_time);
-    prof_buf_index = snprintf(prof_buf, prof_buf_size, "%.2f ", end_time);
+    prof_buf_index = snprintf(prof_buf, prof_buf_size, "%f ", end_time);
 
     // record total execution time
     double exec_time = (double) (t2.tv_sec - t1.tv_sec) + (((double) (t2.tv_nsec - t1.tv_nsec)) / nsec_to_sec);
-    prof_buf_index += snprintf(prof_buf + prof_buf_index, prof_buf_size - prof_buf_index, "%.3f ", exec_time);
+    prof_buf_index += snprintf(prof_buf + prof_buf_index, prof_buf_size - prof_buf_index, "%f ", exec_time);
 
     struct rusage usage;
     getrusage(RUSAGE_CHILDREN, &usage);
 
     // record user cpu time
-    prof_buf_index += snprintf(prof_buf + prof_buf_index, prof_buf_size - prof_buf_index, "%.3f ", ((double) usage.ru_utime.tv_sec + (double) usage.ru_utime.tv_usec / usec_to_sec) - total_user_time);
+    prof_buf_index += snprintf(prof_buf + prof_buf_index, prof_buf_size - prof_buf_index, "%f ", ((double) usage.ru_utime.tv_sec + (double) usage.ru_utime.tv_usec / usec_to_sec) - total_user_time);
     total_user_time = (double) usage.ru_utime.tv_sec + (double) usage.ru_utime.tv_usec / usec_to_sec;
     // record system cpu time
-    prof_buf_index += snprintf(prof_buf + prof_buf_index, prof_buf_size - prof_buf_index, "%.3f ", ((double) usage.ru_stime.tv_sec + (double) usage.ru_stime.tv_usec / usec_to_sec) - total_sys_time);
+    prof_buf_index += snprintf(prof_buf + prof_buf_index, prof_buf_size - prof_buf_index, "%f ", ((double) usage.ru_stime.tv_sec + (double) usage.ru_stime.tv_usec / usec_to_sec) - total_sys_time);
     total_sys_time = (double) usage.ru_stime.tv_sec + (double) usage.ru_stime.tv_usec / usec_to_sec;
 
     char buf[5];
@@ -281,7 +282,7 @@ void run_simple_command(command_t c, int in, int out)
     {
         command_failed = true;
         //error(1, 0, "cannot find command '%s' ... exiting\n", *(c->u.word));
-        fprintf(stderr, "%d: '%s' command not found\n", pid, *(c->u.word));
+        fprintf(stderr, "%d: error executing command '%s'\n", pid, *(c->u.word));
         if(proffile != -1)
         {
             prof_buf_index += snprintf(prof_buf + prof_buf_index, prof_buf_size - prof_buf_index, "[%d]", pid);
@@ -326,20 +327,20 @@ void run_subshell_command(command_t c, int in, int out)
 
             // record absolute time
             double end_time = (double) abs_time.tv_sec + (double) abs_time.tv_nsec / nsec_to_sec;
-            dprintf(proffile, "%.2f ", end_time);
+            dprintf(proffile, "%f ", end_time);
 
             // record total execution time
             clock_gettime(CLOCK_MONOTONIC, &t2);
             double exec_time = (double) (t2.tv_sec - t1.tv_sec) + (((double) (t2.tv_nsec - t1.tv_nsec)) / nsec_to_sec);
-            dprintf(proffile, "%.3f ", exec_time);
+            dprintf(proffile, "%f ", exec_time);
 
             struct rusage usage;
             getrusage(RUSAGE_CHILDREN, &usage);
 
             // record user cpu time
-            dprintf(proffile, "%.3f ", ((double) usage.ru_utime.tv_sec + (double) usage.ru_utime.tv_usec / usec_to_sec));
+            dprintf(proffile, "%f ", ((double) usage.ru_utime.tv_sec + (double) usage.ru_utime.tv_usec / usec_to_sec));
             // record system cpu time
-            dprintf(proffile, "%.3f ", ((double) usage.ru_stime.tv_sec + (double) usage.ru_stime.tv_usec / usec_to_sec));
+            dprintf(proffile, "%f ", ((double) usage.ru_stime.tv_sec + (double) usage.ru_stime.tv_usec / usec_to_sec));
 
             dprintf(proffile, "[%d]\n", getpid());
         }

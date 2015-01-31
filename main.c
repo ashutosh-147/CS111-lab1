@@ -85,11 +85,11 @@ main (int argc, char **argv)
     make_command_stream (get_next_byte, script_stream);
   int prof_failed = 0;
   int profiling = -1;
-  struct timespec t1;
+  struct timespec t1, t2;
   if (profile_name)
   {
     profiling = prepare_profiling (profile_name);
-    clock_gettime(CLOCK_REALTIME, &t1);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
     if (profiling < 0)
 	    error (1, errno, "%s: cannot open", profile_name);
   }
@@ -141,22 +141,23 @@ main (int argc, char **argv)
     
         struct timespec abs_time;
         clock_gettime(CLOCK_REALTIME, &abs_time);
+        clock_gettime(CLOCK_MONOTONIC, &t2);
 
         // record absolute time
         double end_time = (double) abs_time.tv_sec + (double) abs_time.tv_nsec / nsec_to_sec;
-        dprintf(profiling, "%.2f ", end_time);
+        dprintf(profiling, "%f ", end_time);
 
         // record total execution time
-        double exec_time = (double) (abs_time.tv_sec - t1.tv_sec) + (((double) (abs_time.tv_nsec - t1.tv_nsec)) / nsec_to_sec);
-        dprintf(profiling, "%.3f ", exec_time);
+        double exec_time = (double) (t2.tv_sec - t1.tv_sec) + (((double) (t2.tv_nsec - t1.tv_nsec)) / nsec_to_sec);
+        dprintf(profiling, "%f ", exec_time);
 
         struct rusage usage;
         getrusage(RUSAGE_CHILDREN, &usage);
 
         // record user cpu time
-        dprintf(profiling, "%.3f ", ((double) usage.ru_utime.tv_sec + (double) usage.ru_utime.tv_usec / usec_to_sec));
+        dprintf(profiling, "%f ", ((double) usage.ru_utime.tv_sec + (double) usage.ru_utime.tv_usec / usec_to_sec));
         // record system cpu time
-        dprintf(profiling, "%.3f ", ((double) usage.ru_stime.tv_sec + (double) usage.ru_stime.tv_usec / usec_to_sec));
+        dprintf(profiling, "%f ", ((double) usage.ru_stime.tv_sec + (double) usage.ru_stime.tv_usec / usec_to_sec));
 
         dprintf(profiling, "[%d]\n", getpid());
     }
